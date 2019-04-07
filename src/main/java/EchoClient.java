@@ -18,10 +18,29 @@ class EchoClient {
     void start() throws Exception {
         EventLoopGroup group = new NioEventLoopGroup();
         try {
-            Bootstrap b = new Bootstrap();
+            Bootstrap b = new Bootstrap(); // Creates a Bootstrap to create and connect new client channels
+            /*
+            Sets the EventLoopGroup
+            that provides EventLoops for
+            processing Channel events
+             */
             b.group(group)
+                    /*
+                    Specifies the Channel
+                    implementation to
+                    be used
+                     */
                     .channel(NioSocketChannel.class)
+                    /*
+                    instead you could directly Connects to the remote host
+                    
+                    */
                     .remoteAddress(new InetSocketAddress(host, port))
+                    /*
+                    Sets the handler
+                    for Channel events
+                    and data
+                     */
                     .handler(new ChannelInitializer<SocketChannel>() {
 
                         @Override
