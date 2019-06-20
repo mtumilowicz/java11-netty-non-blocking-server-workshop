@@ -15,6 +15,10 @@ class EchoClient {
     private final String host = "localhost";
     private final int port = 8080;
 
+    public static void main(String[] args) throws Exception {
+        new EchoClient().start();
+    }
+
     void start() throws Exception {
         EventLoopGroup group = new NioEventLoopGroup();
         try {
