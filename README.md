@@ -10,3 +10,4 @@
     * https://stackoverflow.com/questions/28480575/whats-the-difference-between-websocket-and-plain-socket-communication
     * https://www.baeldung.com/a-guide-to-java-sockets - good idea to extends Thread
         * good idea with client1.startConnection
+    * https://docs.oracle.com/javase/tutorial/networking/datagrams/index.html - UDP protocol
