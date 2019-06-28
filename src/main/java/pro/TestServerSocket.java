@@ -15,6 +15,7 @@ public class TestServerSocket {
         ServerSocket serverSocket = new ServerSocket(portNumber);
         while (true) {
             Socket socket = serverSocket.accept();
+            System.out.println("Accepted connection from " + socket);
             OutputStream os = socket.getOutputStream();
             PrintWriter pw = new PrintWriter(os, true);
             pw.println("What's you name?");
