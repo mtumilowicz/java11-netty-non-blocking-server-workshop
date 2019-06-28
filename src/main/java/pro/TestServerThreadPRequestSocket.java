@@ -7,7 +7,7 @@ import java.net.Socket;
 /**
  * Created by mtumilowicz on 2019-06-23.
  */
-public class TestServerMultiThreadSocket {
+public class TestServerThreadPRequestSocket {
 
     public static void main(String args[]) throws IOException {
         final int portNumber = 81;
