@@ -8,7 +8,7 @@ import java.util.Scanner;
 /**
  * Created by mtumilowicz on 2019-06-28.
  */
-public class MichcioClient {
+public class MichcioClient2 {
 
     public static void main(String[] args) {
         String hostname = "localhost";
