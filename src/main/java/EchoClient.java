@@ -8,9 +8,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.net.InetSocketAddress;
 
-/**
- * Created by mtumilowicz on 2019-04-05.
- */
 class EchoClient {
     private final String host = "localhost";
     private final int port = 8080;

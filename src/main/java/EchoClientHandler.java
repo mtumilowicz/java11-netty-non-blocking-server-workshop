@@ -6,9 +6,6 @@ import io.netty.util.CharsetUtil;
 
 import static io.netty.channel.ChannelHandler.Sharable;
 
-/**
- * Created by mtumilowicz on 2019-04-05.
- */
 @Sharable
 class EchoClientHandler extends
         SimpleChannelInboundHandler<ByteBuf> {
