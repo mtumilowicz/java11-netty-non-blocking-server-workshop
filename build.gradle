@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group 'java11-netty-basics-EchoServer'
+group 'java11-netty-non-blocking-server-basics'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 11
