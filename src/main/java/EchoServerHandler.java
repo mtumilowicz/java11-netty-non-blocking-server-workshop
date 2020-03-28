@@ -9,18 +9,13 @@ import static io.netty.channel.ChannelHandler.Sharable;
 
 @Sharable
 class EchoServerHandler extends ChannelInboundHandlerAdapter {
+
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf in = (ByteBuf) msg;
         System.out.println(
                 "Server received: " + in.toString(CharsetUtil.UTF_8));
-        ctx.write(in);
-    }
-
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.writeAndFlush(Unpooled.EMPTY_BUFFER)
-                .addListener(ChannelFutureListener.CLOSE);
+        ctx.writeAndFlush(in);
     }
 
     @Override
