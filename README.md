@@ -153,3 +153,104 @@
     * bootstrapping a client is similar to bootstrapping a
       server, with the difference that instead of binding to a listening port the client uses
       host and port parameters to connect to a remote address, here that of the Echo server
+* EventLoop defines Netty’s core abstraction for handling events that occur during
+  the lifetime of a connection
+  An EventLoopGroup contains one or more EventLoops.
+  * An EventLoop is bound to a single Thread for its lifetime.
+  * All I/O events processed by an EventLoop are handled on its dedicated Thread.
+  * A Channel is registered for its lifetime with a single EventLoop.
+  * A single EventLoop may be assigned to one or more Channels.
+* Note that this design, in which the I/O for a given Channel is executed by the same
+  Thread, virtually eliminates the need for synchronization
+* Netty provides ChannelFuture, whose addListener() method registers
+  a ChannelFutureListener to be notified when an operation has completed
+  (whether or not successfully)
+  * Think of a ChannelFuture as a placeholder for the
+    result of an operation that’s to be executed in the future
+  * When exactly it will
+    be executed may depend on several factors and thus be impossible to predict
+    with precision, but it is certain that it will be executed
+  * Furthermore, all operations
+    belonging to the same Channel are guaranteed to be executed in the
+    order in which they were invoked
+* ChannelHandler
+    * From the application developer’s standpoint, the primary component of Netty is the
+      ChannelHandler, which serves as the container for all application logic that applies
+      to handling inbound and outbound data
+    * ChannelHandler
+      methods are triggered by network events (where the term “event” is used very
+      broadly)
+    * ChannelHandler can be dedicated to almost any kind of action,
+      such as converting data from one format to another or handling exceptions thrown
+      during processing
+    * ChannelInboundHandler is a subinterface you’ll implement frequently
+        * This type receives inbound events and data to be handled by your application’s
+          business logic
+        * you can also flush data from a ChannelInboundHandler when
+          you’re sending a response to a connected client
+        * The business logic of your application
+          will often reside in one or more ChannelInboundHandlers
+* ChannelPipeline
+    * ChannelPipeline provides a container for a chain of ChannelHandlers and defines
+      an API for propagating the flow of inbound and outbound events along the chain
+    * When a Channel is created, it is automatically assigned its own ChannelPipeline
+    * ChannelHandlers are installed in the ChannelPipeline as follows:
+        * A ChannelInitializer implementation is registered with a ServerBootstrap
+        * When ChannelInitializer.initChannel() is called, the ChannelInitializer
+          installs a custom set of ChannelHandlers in the pipeline
+        * The ChannelInitializer removes itself from the ChannelPipeline
+    * ChannelHandler has been designed specifically to support a broad range of uses,
+      and you can think of it as a generic container for any code that processes events
+      (including data) coming and going through the ChannelPipeline
+    * movement of an event through the pipeline is the work of the ChannelHandlers
+      that have been installed during the initialization, or bootstrapping phase of the application
+    * These objects receive events, execute the processing logic for which they have
+      been implemented, and pass the data to the next handler in the chain
+    * The order in
+      which they are executed is determined by the order in which they were added
+    * From the point of view of a client application, events are said to
+      be outbound if the movement is from the client to the server and inbound in the
+      opposite case
+    * both inbound and outbound handlers can be installed
+      in the same pipeline
+    * If a message or any other inbound event is read, it will start from
+      the head of the pipeline and be passed to the first ChannelInboundHandler
+      * This handler
+        may or may not actually modify the data, depending on its specific function, after
+        which the data will be passed to the next ChannelInboundHandler in the chain
+      * Finally,
+        the data will reach the tail of the pipeline, at which point all processing is terminated
+    * The outbound movement of data (that is, data being written) is identical in concept.
+      In this case, data flows from the tail through the chain of ChannelOutbound-
+      Handlers until it reaches the head
+      * Beyond this point, outbound data will reach the
+        network transport, shown here as a Socket
+      * Typically, this will trigger a write operation
+    * An event can be forwarded to the next handler in the current chain by using the
+      ChannelHandlerContext that’s supplied as an argument to each method
+      * Because
+        you’ll sometimes ignore uninteresting events, Netty provides the abstract base classes
+        ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter
+      * Each provides
+        method implementations that simply pass the event to the next handler by calling
+        the corresponding method on the ChannelHandlerContext
+      * You can then extend
+        the class by overriding the methods that interest you
+    * Although both inbound and outbound handlers extend ChannelHandler, Netty distinguishes
+      implementations of ChannelInboundHandler and ChannelOutboundHandler
+      and ensures that data is passed only between handlers of the same directional type
+    * When a ChannelHandler is added to a ChannelPipeline, it’s assigned a Channel-
+      HandlerContext, which represents the binding between a ChannelHandler and the
+      ChannelPipeline
+      * Although this object can be used to obtain the underlying Channel,
+        it’s mostly utilized to write outbound data
+    * There are two ways of sending messages in Netty:
+        * You can write directly to the Channel - 
+        causes the message to start from the tail of the ChannelPipeline
+        * write to a ChannelHandlerContext object associated with a ChannelHandler - 
+        causes the message to start from the next handler in the ChannelPipeline
+    * These are the adapters you’ll call most often when creating your custom handlers:
+        * ChannelHandlerAdapter
+        * ChannelInboundHandlerAdapter
+        * ChannelOutboundHandlerAdapter
+        * ChannelDuplexHandlerAdapter
