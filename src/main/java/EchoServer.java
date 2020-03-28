@@ -17,7 +17,6 @@ class EchoServer {
     }
 
     void start() throws Exception {
-        final EchoServerHandler serverHandler = new EchoServerHandler();
         EventLoopGroup group = new NioEventLoopGroup();
         try {
             ServerBootstrap b = new ServerBootstrap();
@@ -27,7 +26,7 @@ class EchoServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() { // Sets a ChannelInboundHandler for I/O and data for the accepted channels
                         @Override
                         public void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(serverHandler);
+                            ch.pipeline().addLast(new EchoServerHandler());
                         }
                     });
             ChannelFuture f = b.bind().sync();
