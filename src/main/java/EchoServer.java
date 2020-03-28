@@ -9,7 +9,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import java.net.InetSocketAddress;
 
 class EchoServer {
-    private final int port = 8080;
+
+    private InetSocketAddress socketAddress = new InetSocketAddress(8080);
 
     public static void main(String[] args) throws Exception {
         new EchoServer().start();
@@ -19,42 +20,11 @@ class EchoServer {
         final EchoServerHandler serverHandler = new EchoServerHandler();
         EventLoopGroup group = new NioEventLoopGroup();
         try {
-            /*
-            Creates a
-            ServerBootstrap
-             */
             ServerBootstrap b = new ServerBootstrap();
-            /*
-            Sets the EventLoopGroup
-            that provides EventLoops for
-            processing Channel events
-             */
-            b.group(group)
-                    /*
-                    Specifies
-the Channel
-implementation
-to be used
-                     */
-                    .channel(NioServerSocketChannel.class)
-                    /*
-                    Binds the
-channel with
-the configured
-bootstrap
-
-instead
-bootstrap.bind(new InetSocketAddress(8080))
-                     */
-                    .localAddress(new InetSocketAddress(port))
-                    /*
-                    Sets a ChannelInboundHandler
-for I/O and data for the
-accepted channels
-
-use new SimpleChannelInboundHandler<ByteBuf>
-                     */
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
+            b.group(group) // sets the EventLoopGroup that provides EventLoops for processing Channel events
+                    .channel(NioServerSocketChannel.class) // Channel implementation to be used
+                    .localAddress(socketAddress)
+                    .childHandler(new ChannelInitializer<SocketChannel>() { // Sets a ChannelInboundHandler for I/O and data for the accepted channels
                         @Override
                         public void initChannel(SocketChannel ch) {
                             ch.pipeline().addLast(serverHandler);
