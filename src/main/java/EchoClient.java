@@ -23,16 +23,18 @@ class EchoClient {
             b.group(group) // set EventLoopGroup that provides EventLoops for processing Channel events
                     .channel(NioSocketChannel.class) // channel implementation
                     .remoteAddress(socketAddress)
-                    .handler(new ChannelInitializer<SocketChannel>() { // handler for Channel events and data
-                        @Override
-                        public void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(new EchoClientHandler());
-                        }
-                    });
+                    .handler(new ChannelHandler());
             ChannelFuture f = b.connect().sync();
             f.channel().closeFuture().sync();
         } finally {
             group.shutdownGracefully().sync();
+        }
+    }
+
+    private static class ChannelHandler extends ChannelInitializer<SocketChannel> {
+        @Override
+        public void initChannel(SocketChannel ch) { // initialize each new Channel with an EchoServerHandler instance
+            ch.pipeline().addLast(new EchoClientHandler());
         }
     }
 }

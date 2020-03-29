@@ -23,16 +23,19 @@ class EchoServer {
             b.group(group) // sets the EventLoopGroup that provides EventLoops for processing Channel events
                     .channel(NioServerSocketChannel.class) // Channel implementation to be used
                     .localAddress(socketAddress)
-                    .childHandler(new ChannelInitializer<SocketChannel>() { // Sets a ChannelInboundHandler for I/O and data for the accepted channels
-                        @Override
-                        public void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(new EchoServerHandler());
-                        }
-                    });
+                    // Sets a ChannelInboundHandler for I/O and data for the accepted channels
+                    .childHandler(new ChildChannelHandler());
             ChannelFuture f = b.bind().sync();
             f.channel().closeFuture().sync();
         } finally {
             group.shutdownGracefully().sync();
+        }
+    }
+
+    private static class ChildChannelHandler extends ChannelInitializer<SocketChannel> {
+        @Override
+        public void initChannel(SocketChannel ch) { // initialize each new Channel with an EchoServerHandler instance
+            ch.pipeline().addLast(new EchoServerHandler());
         }
     }
 }
