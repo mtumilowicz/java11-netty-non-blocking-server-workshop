@@ -1,43 +1,73 @@
 # java11-netty-non-blocking-server-basics
 
-* Consider
-  email: you may or may not get a response to a message you have sent, or you may
-  receive an unexpected message even while sending one.
-* Asynchronous events can also
-  have an ordered relationship. You generally get an answer to a question only after you
-  have asked it, and you may be able to do something else while you are waiting for it
+## preface
+* consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
+message even while sending one
+* asynchronous events can also have an ordered relationship
+    * you generally get an answer to a question only after you have asked it, and you may be able to do something 
+    else while you are waiting for it
 * Netty’s core components
     * Channels
     * Callbacks
     * Futures
     * Events and handlers
-* Netty’s alternative to ByteBuffer is ByteBuf
 
 ## channel
-* you can think of each ChannelHandler instance as a kind of callback to be executed in response to a specific event
-* Channel is a basic construct of Java NIO
-    * an open connection to an entity such as a hardware device, a file, a network socket, or a program component 
-    that is capable of performing one or more distinct I/O operations (reading or writing)
-    * think of a Channel as a vehicle for incoming (inbound) and outgoing (outbound) data
-    * it can be open or closed
-* Netty provides `ChannelFuture`, whose `addListener()` method registers a `ChannelFutureListener` to be notified 
-when an operation has completed (whether or not successfully)
-  * think of a `ChannelFuture` as a placeholder for the result of an operation that’s to be executed in the future
-  * when exactly it will be executed may depend on several factors and thus be impossible to predict with 
-  precision, but it is certain that it will be executed
-  * furthermore, all operations belonging to the same Channel are guaranteed to be executed in the order in which 
-  they were invoked
-* `ChannelHandler`
-    * from the application developer’s standpoint, the primary component of Netty is the `ChannelHandler`, which 
-    serves as the container for all application logic that applies to handling inbound and outbound data
-    * ChannelHandler methods are triggered by network events (where the term “event” is used very broadly)
-    * ChannelHandler can be dedicated to almost any kind of action, such as converting data from one format to 
-    another or handling exceptions thrown during processing
-    * ChannelInboundHandler is a subinterface you’ll implement frequently
-        * this type receives inbound events and data to be handled by your application’s
-          business logic
-        * you can also flush data from a ChannelInboundHandler when you’re sending a response to a connected client
-        * the business logic of your application will often reside in one or more ChannelInboundHandlers
+* lifecycle
+    * `ChannelRegistered` - registered to an EventLoop
+    * `ChannelActive` - active (connected to its remote peer); ready to receive and send data
+    * `ChannelInactive` - not connected to the remote peer.
+    * `ChannelUnregistered` - not registered to an EventLoop
+* `Channel` is a basic construct of Java NIO
+    * an open connection to an entity (hardware device, file, network socket) 
+    that is capable of performing I/O operations (reading or writing)
+    
+### ChannelHandler
+* supports almost any kind of action, example: converting data, handling exceptions etc.
+    * help to separate business logic from networking code
+* is a kind of callback to be executed in response to a specific event
+    * implemented to hook into the event lifecycle and provide custom logic
+* when added to a `ChannelPipeline` - gets `ChannelHandlerContext` (binding between handler and the pipeline)
+* The ChannelHandler lifecycle (ChannelHandler lifecycle methods)
+    * Each method accepts a ChannelHandlerContext argument
+    * handlerAdded - Called when a ChannelHandler is added to a ChannelPipeline
+    * handlerRemoved - Called when a ChannelHandler is removed from a ChannelPipeline
+    * exceptionCaught - Called if an error occurs in the ChannelPipeline during processing
+    * Netty defines the following two important subinterfaces of ChannelHandler:
+        * ChannelInboundHandler—Processes inbound data and state changes of all kinds
+        * ChannelOutboundHandler—Processes outbound data and allows interception
+        of all operations
+* You can use the classes ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter as starting points for 
+your own ChannelHandlers
+* These adapters provide basic implementations of ChannelInboundHandler and ChannelOutboundHandler respectively
+* extends the abstract class ChannelHandlerAdapter
+* ChannelHandlerAdapter also provides the utility method isSharable()
+    * This method returns true if the implementation is annotated as Sharable, indicating that it can be added 
+    to multiple ChannelPipelines
+* When a ChannelInboundHandler implementation overrides channelRead(), it is responsible for explicitly releasing 
+the memory associated with pooled ByteBuf instances `ReferenceCountUtil.release(msg)`
+    * But managing resources in this way can be cumbersome
+    * A simpler alternative is to use SimpleChannelInboundHandler
+    * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
+    messages for later use, as these will become invalid
+        
+### Resource management
+* Netty’s alternative to ByteBuffer is ByteBuf
+* Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
+need to ensure that there are no resource leaks.
+    * Netty uses reference counting to handle pooled ByteBufs
+* Because consuming inbound data and releasing it is such a common task, Netty provides a special 
+ChannelInboundHandler implementation called SimpleChannelInboundHandler
+    * This implementation will automatically release a message once it’s consumed by channelRead0()
+    * It’s important not only to release resources but also to notify the ChannelPromise
+    * Otherwise a situation might arise where a ChannelFutureListener has not been notified about a message that 
+    has been handled
+    * it is the responsibility of the user to call ReferenceCountUtil.release() if a message is consumed or 
+    discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
+    * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
+    the Channel is closed
+        
+### ChannelPipeline
 * ChannelPipeline
     * ChannelPipeline provides a container for a chain of ChannelHandlers and defines an API for propagating the 
     flow of inbound and outbound events along the chain
@@ -56,7 +86,7 @@ when an operation has completed (whether or not successfully)
     * The order in which they are executed is determined by the order in which they were added
     * From the point of view of a client application, events are said to be outbound if the movement is from the 
     client to the server and inbound in the opposite case
-    * both inbound and outbound handlers can be installed in the same pipeline
+        * both inbound and outbound handlers can be installed in the same pipeline
     * If a message or any other inbound event is read, it will start from the head of the pipeline and be passed 
     to the first ChannelInboundHandler
         * This handler may or may not actually modify the data, depending on its specific function, after which the 
@@ -66,110 +96,10 @@ when an operation has completed (whether or not successfully)
     from the tail through the chain of ChannelOutboundHandlers until it reaches the head
         * Beyond this point, outbound data will reach the network transport, shown here as a Socket
         * Typically, this will trigger a write operation
-    * An event can be forwarded to the next handler in the current chain by using the ChannelHandlerContext that’s 
-    supplied as an argument to each method
-        * Because you’ll sometimes ignore uninteresting events, Netty provides the abstract base classes 
-        ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter
-        * Each provides method implementations that simply pass the event to the next handler by calling the 
-        corresponding method on the ChannelHandlerContext
-        * You can then extend the class by overriding the methods that interest you
-    * Although both inbound and outbound handlers extend ChannelHandler, Netty distinguishes implementations of 
-    ChannelInboundHandler and ChannelOutboundHandler and ensures that data is passed only between handlers of the 
-    same directional type
-    * When a ChannelHandler is added to a ChannelPipeline, it’s assigned a Channel- HandlerContext, which represents 
-    the binding between a ChannelHandler and the ChannelPipeline
-        * Although this object can be used to obtain the underlying Channel, it’s mostly utilized to write outbound data
     * There are two ways of sending messages in Netty:
         * You can write directly to the Channel - causes the message to start from the tail of the ChannelPipeline
         * write to a ChannelHandlerContext object associated with a ChannelHandler - causes the message to start 
         from the next handler in the ChannelPipeline
-    * These are the adapters you’ll call most often when creating your custom handlers:
-        * ChannelHandlerAdapter
-        * ChannelInboundHandlerAdapter
-        * ChannelOutboundHandlerAdapter
-        * ChannelDuplexHandlerAdapter
-        
-* All Netty servers require the following:
-    * At least one ChannelHandler—This component implements the server’s processing of data received from the 
-    client—its business logic
-    * Bootstrapping—This is the startup code that configures the server. At a minimum, it binds the server to the port 
-    on which it will listen for connection requests
-* Every Channel has an associated ChannelPipeline, which holds a chain of ChannelHandler instances
-    * By default, a handler will forward the invocation of a handler method to the next one in the chain
-    * Therefore, if exceptionCaught()is not implemented somewhere along the chain, exceptions received will travel to 
-    the end of the ChannelPipeline and will be logged
-    * For this reason, your application should supply at least one ChannelHandler that implements exceptionCaught()
-* ChanelHandlers
-    * ChannelHandlers are invoked for different types of events.
-    * Applications implement or extend ChannelHandlers to hook into the event lifecycle and provide custom 
-    application logic
-    * Architecturally, ChannelHandlers help to keep your business logic decoupled from networking code. This 
-    simplifies development as the code evolves in response to changing requirements
-### The ChannelHandler family
-* The Channel lifecycle (Channel lifecycle states)
-    * ChannelRegistered - The Channel is registered to an EventLoop.
-    * ChannelActive - The Channel is active (connected to its remote peer). It’s now possible 
-        to receive and send data.
-    * ChannelInactive - The Channel isn’t connected to the remote peer.
-    * ChannelUnregistered - The Channel was created, but isn’t registered to an EventLoop.
-* The ChannelHandler lifecycle (ChannelHandler lifecycle methods)
-    * Each method accepts a ChannelHandlerContext argument
-    * handlerAdded - Called when a ChannelHandler is added to a ChannelPipeline
-    * handlerRemoved - Called when a ChannelHandler is removed from a ChannelPipeline
-    * exceptionCaught - Called if an error occurs in the ChannelPipeline during processing
-    * Netty defines the following two important subinterfaces of ChannelHandler:
-        * ChannelInboundHandler—Processes inbound data and state changes of all kinds
-        * ChannelOutboundHandler—Processes outbound data and allows interception
-        of all operations
-* Interface ChannelInboundHandler
-    * ChannelInboundHandler methods
-        * channelRegistered - Invoked when a Channel is registered to its EventLoop and is able to handle I/O.
-        * channelUnregistered - Invoked when a Channel is deregistered from its EventLoop and can’t handle any I/O.
-        * channelActive - Invoked when a Channel is active; the Channel is connected/bound and ready.
-        * channelInactive - Invoked when a Channel leaves active state and is no longer connected to its remote peer.
-        * channelReadComplete - Invoked when a read operation on the Channel has completed.
-        * channelRead - Invoked if data is read from the Channel.
-        * channelWritabilityChanged - Invoked when the writability state of the Channel changes. 
-            The user can ensure writes are not done too quickly (to avoid an OutOfMemoryError) or can resume writes 
-            when the Channel becomes writable again. The Channel method isWritable() can be called to detect the 
-            writability of the channel. The threshold for writability can be set via 
-            Channel.config().setWriteHighWaterMark() and Channel.config().setWriteLowWaterMark().
-        * userEventTriggered - Invoked when ChannelnboundHandler.fireUserEventTriggered() is called because a POJO was 
-        passed through the ChannelPipeline.
-    * These are called when data is received or when the state of the associated Channel changes
-    * As we mentioned earlier, these methods map closely to the Channel lifecycle
-    * When a ChannelInboundHandler implementation overrides channelRead(), it is responsible for explicitly releasing 
-    the memory associated with pooled ByteBuf instances `ReferenceCountUtil.release(msg)`
-        * But managing resources in this way can be cumbersome
-        * A simpler alternative is to use SimpleChannelInboundHandler
-        * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
-        messages for later use, as these will become invalid
-    
-### ChannelHandler adapters
-* You can use the classes ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter as starting points for 
-your own ChannelHandlers
-* These adapters provide basic implementations of ChannelInboundHandler and ChannelOutboundHandler respectively
-* extends the abstract class ChannelHandlerAdapter
-* ChannelHandlerAdapter also provides the utility method isSharable()
-    * This method returns true if the implementation is annotated as Sharable, indicating that it can be added 
-    to multiple ChannelPipelines
-        
-### Resource management
-* Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
-need to ensure that there are no resource leaks.
-    * Netty uses reference counting to handle pooled ByteBufs
-* Because consuming inbound data and releasing it is such a common task, Netty provides a special 
-ChannelInboundHandler implementation called SimpleChannelInboundHandler
-    * This implementation will automatically release a message once it’s consumed by channelRead0()
-    * It’s important not only to release resources but also to notify the ChannelPromise
-    * Otherwise a situation might arise where a ChannelFutureListener has not been notified about a message that 
-    has been handled
-    * it is the responsibility of the user to call ReferenceCountUtil.release() if a message is consumed or 
-    discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
-    * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
-    the Channel is closed
-        
-### ChannelPipeline
 * Every new Channel that’s created is assigned a new ChannelPipeline
 * Depending on its origin, an event will be handled by either a ChannelInboundHandler or a ChannelOutboundHandler
 * Subsequently it will be forwarded to the next handler of the same supertype by a call to a ChannelHandlerContext 
@@ -356,3 +286,7 @@ starting at the point in the ChannelInboundHandler where it was triggered
 * `ChannelInboundHandler.exceptionCaught(ChannelHandlerContext ctx, Throwable cause)`
     * default implementation forwards the current exception to the next handler in the pipeline
     * if an exception reaches the end of the pipeline, it’s logged as unhandled.
+* by default, a handler will forward the invocation of a handler method to the next one in the chain
+* therefore, if exceptionCaught() is not implemented somewhere along the chain, exceptions received will travel to 
+the end of the ChannelPipeline and will be logged
+* For this reason, your application should supply at least one ChannelHandler that implements exceptionCaught()
