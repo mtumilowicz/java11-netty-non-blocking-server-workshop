@@ -474,30 +474,9 @@ change during the lifetime of the EventLoop
     * Never put a long-running task in the execution queue, because it will block any other task from executing on the 
     same thread.
         * If you must make blocking calls or execute long-running tasks, we advise the use of a dedicated EventExecutor.
-* EventLoop/thread allocation
-    * EventLoops that service I/O and events for Channels are contained in an EventLoopGroup
-    * The manner in which EventLoops are created and assigned varies according to the transport implementation
-    * ASYNCHRONOUS TRANSPORTS
-        * Asynchronous implementations use only a few EventLoops (and their associated Threads), and in the current 
-        model these may be shared among Channels
-        * This allows many Channels to be served by the smallest possible number of Threads, rather than assigning 
-        a Thread per Channel
-        * The EventLoops (and their Threads) are allocated directly when the EventLoopGroup is created to ensure that 
-        they will be available when needed
-        * EventLoopGroup is responsible for allocating an EventLoop to each newly created Channel
-        * the same EventLoop may be assigned to multiple Channels
-        * Each EventLoop handles all events and tasks for all the channels assigned to it. Each EventLoop is 
-        associated with one Thread.
-        * Once a Channel has been assigned an EventLoop, it will use this EventLoop (and the associated Thread) 
-        throughout its lifetime
-        * Because an EventLoop usually powers more than one Channel, ThreadLocal will be the same for all associated Channels
-            * This makes it a poor choice for implementing a function such as state tracking
-            * However, in a stateless context it can still be useful for sharing heavy or expensive objects, or even 
-            events, among Channels
-    * BLOCKING TRANSPORTS
-        * one EventLoop (and its Thread) is assigned to each Channel
-        * it is guaranteed that the I/O events of each Channel will be handled by only one Thread—the one that powers 
-        the Channel’s EventLoop
+* EventLoopGroup is responsible for allocating an EventLoop to each newly created Channel
+* Each EventLoop handles all events and tasks for all the channels assigned to it. Each EventLoop is 
+associated with one Thread.
 
 ## bootstrapping
 * NIO transport refers to a transport that’s mostly  identical to TCP except for server-side performance enhancements 
