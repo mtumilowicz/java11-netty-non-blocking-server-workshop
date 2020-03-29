@@ -577,6 +577,8 @@ conversing with them
     * The difference between handler() and childHandler() is that the former adds a handler that’s processed by the 
     accepting ServerChannel, whereas childHandler() adds a handler that’s processed by an accepted Channel, which 
     represents a socket bound to a remote peer
+    * bind Binds the ServerChannel and returns a ChannelFuture , which is notified
+      once the connection operation is complete (with the success or error result).
     
 * ServerChannel implementations are responsible for creating child Channels, which represent accepted 
 connections
