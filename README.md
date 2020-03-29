@@ -11,6 +11,9 @@
     * Callbacks
     * Futures
     * Events and handlers
+* Netty’s alternative to ByteBuffer is ByteBuf
+
+## channel
 * Channel is a basic construct of Java NIO
     * an open connection to an entity such as a hardware device, a file, a
     network socket, or a program component that is capable of performing
@@ -18,150 +21,6 @@
     * For now, think of a Channel as a vehicle for incoming (inbound) and outgoing (outbound)
       data
     * it can be open or closed
-* callback is simply a method, a reference to which has been provided to another
-  method
-    * This enables the latter to call the former at an appropriate time
-    * represents one of the most
-      common ways to notify an interested party that an operation has completed
-    * Netty uses callbacks internally when handling events; when a callback is triggered
-      the event can be handled by an implementation of interface ChannelHandler
-    * an example - hooks from ChannelInboundHandlerAdapter: channelActive(ChannelHandlerContext) 
-    is called when a new connection is established
-* Future
-    * provides another way to notify an application when an operation has completed
-    * acts as a placeholder for the result of an asynchronous operation
-    * it will complete at some point in the future and provide access to the result
-    * JDK ships with interface java.util.concurrent.Future, but the provided
-      implementations allow you only to check manually whether the operation has completed
-      or to block until it does
-    * Netty provides its own
-      implementation, ChannelFuture, for use when an asynchronous operation is executed
-    * ChannelFuture provides additional methods that allow us to register one or
-      more ChannelFutureListener instances
-    * listener’s callback method, operation-
-      Complete(), is called when the operation has completed
-        * listener can then determine
-          whether the operation completed successfully or with an error
-        * If the latter, we
-          can retrieve the Throwable that was produced
-        ```
-        future.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future) {
-                if (future.isSuccess()){
-                    ByteBuf buffer = Unpooled.copiedBuffer(
-                    "Hello",Charset.defaultCharset());
-                    ChannelFuture wf = future.channel()
-                    .writeAndFlush(buffer);
-                    ....
-                } else {
-                    Throwable cause = future.cause();
-                    cause.printStackTrace();
-                }
-            }
-        });
-        ```
-    * the notification mechanism
-      provided by the ChannelFutureListener eliminates the need for manually checking
-      operation completion
-    * Each of Netty’s outbound I/O operations returns a ChannelFuture
-    * ChannelFutureListener is a more elaborate version of a
-      callback, you’re correct
-    * callbacks and Futures are complementary mechanisms;
-      in combination they make up one of the key building blocks of Netty itself
-* Events and handlers
-    * Netty uses distinct events to notify us about changes of state or the status of operations
-    * This allows us to trigger the appropriate action based on the event that has
-      occurred. Such actions might include
-      * Logging
-      * Data transformation
-      * Flow-control
-      * Application logic
-    * Events that may be triggered by inbound data or an
-      associated change of state include
-      * Active or inactive connections
-      * Data reads
-      * User events
-      * Error events
-    * An outbound event is the result of an operation that will trigger an action in the
-      future, which may be
-      * Opening or closing a connection to a remote peer
-      * Writing or flushing data to a socket
-    * you can think of each ChannelHandler instance as a kind of callback to be executed
-      in response to a specific event
-* Event loop
-    * Under the covers,
-      an EventLoop is assigned to each Channel to handle all of the events, including
-      * Registration of interesting events
-      * Dispatching events to ChannelHandlers
-      * Scheduling further actions
-    * EventLoop itself is driven by only one thread that handles all of the I/O events for
-      one Channel and does not change during the lifetime of the EventLoop
-    * This simple
-      and powerful design eliminates any concern you might have about synchronization in
-      your ChannelHandlers, so you can focus on providing the right logic to be executed
-      when there is interesting data to process
-* All Netty servers require the following:
-    * At least one ChannelHandler—This component implements the server’s processing
-      of data received from the client—its business logic
-    * Bootstrapping—This is the startup code that configures the server. At a minimum,
-      it binds the server to the port on which it will listen for connection requests
-* Every Channel has an associated ChannelPipeline, which holds a chain of Channel-
-  Handler instances
-  * By default, a handler will forward the invocation of a handler
-    method to the next one in the chain
-  * Therefore, if exceptionCaught()is not implemented
-    somewhere along the chain, exceptions received will travel to the end of the
-    ChannelPipeline and will be logged
-  * For this reason, your application should supply
-    at least one ChannelHandler that implements exceptionCaught()
-* ChanelHandlers
-    * ChannelHandlers are invoked for different types of events.
-    * Applications implement or extend ChannelHandlers to hook into the event lifecycle
-      and provide custom application logic
-    * Architecturally, ChannelHandlers help to keep your business logic decoupled
-      from networking code. This simplifies development as the code evolves in
-      response to changing requirements
-* Bootstrapping the server
-    * bootstrapping involves
-        * Bind to the port on which the server will listen for and accept incoming connection
-          requests
-        * Configure Channels to notify an EchoServerHandler instance about inbound
-          messages
-    * transport - in the standard, multilayered view
-      of networking protocols, the transport layer is the one that provides services for endto-
-      end or host-to-host communications
-      * Internet communications are based on the TCP transport. NIO transport refers to a
-        transport that’s mostly identical to TCP except for server-side performance enhancements
-        provided by the Java NIO implementation
-    * The following steps are required in bootstrapping:
-      * Create a ServerBootstrap instance to bootstrap and bind the server.
-      * Create and assign an NioEventLoopGroup instance to handle event processing,
-      such as accepting new connections and reading/writing data.
-      * Specify the local InetSocketAddress to which the server binds.
-      * Initialize each new Channel with an EchoServerHandler instance.
-      * Call ServerBootstrap.bind() to bind the server.
-    * NIO is used in this example because it’s currently the most widely used transport,
-      thanks to its scalability and thoroughgoing asynchrony
-    * When a
-      new connection is accepted, a new child Channel will be created, and the Channel-
-      Initializer will add an instance of your EchoServerHandler to the Channel’s
-      ChannelPipeline
-      * this handler will receive notifications
-        about inbound messages
-* Bootstrapping the client
-    * bootstrapping a client is similar to bootstrapping a
-      server, with the difference that instead of binding to a listening port the client uses
-      host and port parameters to connect to a remote address, here that of the Echo server
-* EventLoop defines Netty’s core abstraction for handling events that occur during
-  the lifetime of a connection
-  An EventLoopGroup contains one or more EventLoops.
-  * An EventLoop is bound to a single Thread for its lifetime.
-  * All I/O events processed by an EventLoop are handled on its dedicated Thread.
-  * A Channel is registered for its lifetime with a single EventLoop.
-  * A single EventLoop may be assigned to one or more Channels.
-* Note that this design, in which the I/O for a given Channel is executed by the same
-  Thread, virtually eliminates the need for synchronization
 * Netty provides ChannelFuture, whose addListener() method registers
   a ChannelFutureListener to be notified when an operation has completed
   (whether or not successfully)
@@ -254,380 +113,6 @@
         * ChannelInboundHandlerAdapter
         * ChannelOutboundHandlerAdapter
         * ChannelDuplexHandlerAdapter
-* Netty’s alternative to ByteBuffer is ByteBuf
-
-## Bootstrapping
-* bootstrapping an
-  application is the process of configuring it to run—though the details of the process
-  may not be as simple as its definition, especially in network applications
-* Bootstrap classes
-    * Rather than thinking of the concrete classes as server and client bootstraps, it’s helpful
-      to keep in mind the distinct application functions they’re intended to support
-        * a server devotes a parent channel to accepting connections from clients and
-          creating child channels for conversing with them
-        * a client will most likely
-          require only a single, non-parent channel for all network interactions
-    * The bootstrapping steps common to both application types are handled by Abstract-
-      Bootstrap
-      * specific to clients - Bootstrap
-      * specific to servers - ServerBootstrap
-    * bootstrap classes Cloneable
-        * You’ll sometimes need to create multiple channels that have similar or identical settings
-        * Note that this creates only a shallow copy of the bootstrap’s EventLoopGroup, so
-          the latter will be shared among all of the cloned channels
-        * This is acceptable, as the
-          cloned channels are often short-lived, a typical case being a channel created to make
-          an HTTP request
-    * public abstract class AbstractBootstrap<B extends AbstractBootstrap<B,C>,C extends Channel>
-        * subclass B is a type parameter to the superclass, so that a reference
-          to the runtime instance can be returned to support method chaining
-        * public class Bootstrap extends AbstractBootstrap<Bootstrap,Channel>
-        * public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap,ServerChannel>
-* Bootstrapping clients and connectionless protocols
-    * methods: p. 109 110
-* Channel and EventLoopGroup compatibility
-    * you can’t mix components having different
-      prefixes, such as NioEventLoopGroup and OioSocketChannel
-    ```
-    Exception in thread "main" java.lang.IllegalStateException:
-    incompatible event loop type: io.netty.channel.nio.NioEventLoop at
-    io.netty.channel.AbstractChannel$AbstractUnsafe.register(
-    AbstractChannel.java:571)
-    ```
-* before you call bind() or connect() you must call all the following
-  methods to set up the required components.
-  * group()
-  * channel() or channnelFactory()
-  * handler() - it’s needed to configure the ChannelPipeline
-  * Failure to do so will cause an IllegalStateException
-* Bootstrapping servers
-    * Methods p. 113
-* Bootstrapping a server
-    * childHandler(), childAttr(), and childOption()
-        * ServerChannel implementations
-          are responsible for creating child Channels, which represent accepted connections
-        * ServerBootstrap, which bootstraps ServerChannels, provides these methods to
-          simplify the task of applying settings to the ChannelConfig member of an accepted
-          Channel
-    1. A ServerChannel is created
-       when bind() is called
-    1. A new Channel is created
-       by the ServerChannel when
-       a connection is accepted
-* Bootstrapping clients from a Channel
-    * Suppose your server is processing a client request that requires it to act as a client to
-      a third system
-      * This can happen when an application, such as a proxy server, has to
-        integrate with an organization’s existing systems, such as web services or databases
-      * In
-        such cases you’ll need to bootstrap a client Channel from a ServerChannel
-    * You could create a new Bootstrap as described in section 8.2.1, but this is not the
-      most efficient solution, as it would require you to define another EventLoop for the new
-      client Channel
-        * This would produce additional threads, necessitating context switching
-          when exchanging data between the accepted Channel and the client Channel
-    * A better solution is to share the EventLoop of the accepted Channel by passing it to
-      the group() method of the Bootstrap
-        * Because all Channels assigned to an EventLoop
-          use the same thread, this avoids the extra thread creation and related context-switching
-          mentioned previously
-    * p. 116 (project)
-* Adding multiple ChannelHandlers during a bootstrap
-    * In all of the code examples we’ve shown, we’ve called handler() or childHandler()
-      during the bootstrap process to add a single ChannelHandler
-        * This may be sufficient
-          for simple applications, but it won’t meet the needs of more complex ones
-        * For example,
-          an application that has to support multiple protocols will have many Channel-
-          Handlers, the alternative being a large and unwieldy class
-    * As you’ve seen repeatedly, you can deploy as many ChannelHandlers as you require
-      by chaining them together in a ChannelPipeline
-    * But how can you do this if you can
-      set only one ChannelHandler during the bootstrapping process
-        * Netty supplies a special subclass of ChannelInboundHandlerAdapter
-            ```
-            public abstract class ChannelInitializer<C extends Channel>
-            extends ChannelInboundHandlerAdapter
-            ```
-            with method
-            ```
-            protected abstract void initChannel(C ch) throws Exception;
-            ```
-        * provides an easy way to add multiple ChannelHandlers to a Channel-
-          Pipeline
-        * You simply provide your implementation of ChannelInitializer to the
-          bootstrap, and once the Channel is registered with its EventLoop your version of init-
-          Channel() is called
-        * After the method returns, the ChannelInitializer instance
-          removes itself from the ChannelPipeline
-        ```
-        final class ChannelInitializerImpl extends ChannelInitializer<Channel> {
-            @Override
-            protected void initChannel(Channel ch) throws Exception {
-                ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast(new HttpClientCodec());
-                pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-            }
-        }
-        ```
-        * If your application makes use of numerous ChannelHandlers, define your own Channel-
-          Initializer to install them in the pipeline
-* Using Netty ChannelOptions and attributes
-    * Manually configuring every channel when it’s created could become quite tedious
-    * Instead, you can use option() to apply ChannelOptions
-      to a bootstrap
-    * The values you provide will be applied automatically to all Channels
-      created in the bootstrap
-    * ChannelOptions available include low-level connection
-      details such as keep-alive or timeout properties and buffer settings
-    * Consider, for example, a server application that tracks the relationship between
-      users and Channels
-      * This can be accomplished by storing the user’s ID as an attribute
-        of a Channel
-      * A similar technique could be used to route messages to users based on
-        their ID or to shut down a channel if there is low activity
-      * p. 118
-      ```
-      final AttributeKey<Integer> id = new AttributeKey<Integer>("ID");
-      Integer idValue = ctx.channel().attr(id).get();
-      
-      bootstrap.option(ChannelOption.SO_KEEPALIVE,true)
-      .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000);
-      bootstrap.attr(id, 123456);
-      ```
-* Bootstrapping DatagramChannels
-    * Bootstrap can be used for connectionless protocols as well
-    * Netty provides various
-      DatagramChannel implementations for this purpose
-    * The only difference is that you
-      don’t call connect() but only bind()
-* Shutdown
-    * You could, of course, just let the JVM handle everything on
-      exiting, but this wouldn’t meet the definition of graceful, which refers to releasing
-      resources cleanly
-    * you need to shut down the EventLoopGroup, which will handle any
-                                                pending events and tasks and subsequently release all active threads
-    * This is a matter
-      of calling EventLoopGroup.shutdownGracefully()
-    * This call will return a Future,
-      which is notified when the shutdown completes
-    * Note that shutdownGracefully() is
-      also an asynchronous operation, so you’ll need to either block until it completes or
-      register a listener with the returned Future to be notified of completion
-      ```
-      // block until the group has shutdown
-      future.syncUninterruptibly();
-      ```
-      
-### EventLoop and threading model
-* threading model specifies key aspects of thread management in the
-  context of an OS, programming language, framework, or application
-    * How and
-      when threads are created obviously has a significant impact on the execution of
-      application code, so developers need to understand the trade-offs associated with
-      different models
-* Interface EventLoop
-    * basic idea of an event loop
-        ```
-        while (!terminated) {
-            List<Runnable> readyEvents = blockUntilEventsReady();
-            for (Runnable ev: readyEvents) {
-                ev.run();
-            }
-        }
-        ```
-    * EventLoop is powered by exactly one Thread that never changes,
-      and tasks (Runnable or Callable) can be submitted directly to EventLoop implementations
-      for immediate or scheduled execution
-    * Depending on the configuration and
-      the available cores, multiple EventLoops may be created in order to optimize resource
-      use, and a single EventLoop may be assigned to service multiple Channels
-    * Netty’s EventLoop, while it extends ScheduledExecutorService, defines
-      only one method, parent()
-      * is
-        intended to return a reference to the EventLoopGroup to which the current Event-
-        Loop implementation instance belongs
-    * Events and tasks are executed in FIFO (firstin-
-      first-out) order
-* I/O and event handling in Netty 4
-    * events triggered by I/O operations flow through a
-      ChannelPipeline that has one or more installed ChannelHandlers
-    * The method calls
-      that propagate these events can then be intercepted by the ChannelHandlers and the
-      events processed as required
-    * Therefore, in Netty 4 all I/O operations and events are handled
-      by the Thread that has been assigned to the EventLoop
-* Task scheduling
-    * A common use case is to send a heartbeat message to a
-      remote peer to check whether the connection is still alive
-      * If there is no response, you
-        know you can close the channel
-    * The ScheduledExecutorService implementation has limitations, such as the fact that
-      extra threads are created as part of pool management
-    * Scheduling a task with EventLoop
-        ```
-        Channel ch = ...
-        ScheduledFuture<?> future = ch.eventLoop().schedule(
-            new Runnable() {
-                @Override
-                public void run() {
-                    System.out.println("60 seconds later");
-                }
-        }, 60, TimeUnit.SECONDS); // delay
-        ```
-    * Scheduling a recurring task with EventLoop
-        ```
-        Channel ch = ...
-        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(
-            new Runnable() {
-                @Override
-                public void run() {
-                    System.out.println("Run every 60 seconds");
-                }
-        }, 60, 60, TimeUnit.Seconds);
-        ```
-    * Canceling a task using ScheduledFuture
-        ```
-        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(...);
-        // Some other code that runs...
-        boolean mayInterruptIfRunning = false;
-        future.cancel(mayInterruptIfRunning);
-        ```
-* Thread management
-    * The superior performance of Netty’s threading model hinges on determining the
-      identity of the currently executing Thread
-      * that is, whether or not it is the one assigned
-        to the current Channel and its EventLoop (EventLoop is responsible
-                                                  for handling all events for a Channel during its lifetime)
-    * If the calling Thread is that of the EventLoop, the code block in question is executed
-        * Otherwise, the EventLoop schedules a task for later execution and puts it in an
-          internal queue
-        * When the EventLoop next processes its events, it will execute those in
-          the queue
-    * This explains how any Thread can interact directly with the Channel without
-      requiring synchronization in the ChannelHandlers
-    * Note that each EventLoop has its own task queue, independent of that of any other
-      EventLoop
-    * Never put a long-running task in the execution queue,
-      because it will block any other task from executing on the same thread.
-        * If you must
-          make blocking calls or execute long-running tasks, we advise the use of a dedicated
-          EventExecutor.
-* EventLoop/thread allocation
-    * EventLoops that service I/O and events for Channels are contained in an Event-
-      LoopGroup
-    * The manner in which EventLoops are created and assigned varies according
-      to the transport implementation
-    * ASYNCHRONOUS TRANSPORTS
-        * Asynchronous implementations use only a few EventLoops (and their associated
-          Threads), and in the current model these may be shared among Channels
-        * This allows
-          many Channels to be served by the smallest possible number of Threads, rather than
-          assigning a Thread per Channel
-        * The EventLoops (and their Threads) are allocated directly
-          when the EventLoopGroup is created to ensure that they will be available when needed
-        * EventLoopGroup is responsible for allocating an EventLoop to each newly created
-          Channel
-        * the same EventLoop may be assigned to multiple Channels
-        * Each EventLoop handles all events and tasks for all the channels assigned to it.
-          Each EventLoop is associated with one Thread.
-        * Once a Channel has been assigned an EventLoop, it will use this EventLoop (and the
-          associated Thread) throughout its lifetime
-        * Because an EventLoop usually powers more than one Channel, ThreadLocal will be
-          the same for all associated Channels
-          * This makes it a poor choice for implementing a
-            function such as state tracking
-          * However, in a stateless context it can still be useful for
-            sharing heavy or expensive objects, or even events, among Channels
-    * BLOCKING TRANSPORTS
-        * one EventLoop (and its Thread) is assigned to each Channel
-        * it is guaranteed that the I/O events of each Channel will be handled
-          by only one Thread—the one that powers the Channel’s EventLoop
-
-### Exception handling
-* Handling inbound exceptions
-    * If an exception is thrown during processing of an inbound event, it will start to flow
-      through the ChannelPipeline starting at the point in the ChannelInboundHandler
-      where it was triggered
-    * To handle such an inbound exception, you need to override
-      the following method in your ChannelInboundHandler implementation
-      ```
-      public void exceptionCaught(
-      ChannelHandlerContext ctx, Throwable cause) throws Exception
-      ```
-      example
-      ```
-      public class InboundExceptionHandler extends ChannelInboundHandlerAdapter {
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            cause.printStackTrace();
-            ctx.close();
-        }
-      }
-      ```
-    * ChannelInboundHandler that implements the preceding logic is
-      usually placed last in the ChannelPipeline (exception will continue to flow in the inbound direction)
-    * If you don’t implement any handling for inbound exceptions (or don’t consume
-      the exception), Netty will log the fact that the exception wasn’t handled
-    * summarize
-      * The default implementation of ChannelHandler.exceptionCaught() forwards
-      the current exception to the next handler in the pipeline.
-      * If an exception reaches the end of the pipeline, it’s logged as unhandled.
-      * To define custom handling, you override exceptionCaught(). It’s then your
-      decision whether to propagate the exception beyond that point.
-* Handling outbound exceptions
-    * The options for handling normal completion and exceptions in outbound operations
-      are based on the following notification mechanisms:
-      * Every outbound operation returns a ChannelFuture. The ChannelFuture-
-        Listeners registered with a ChannelFuture are notified of success or error
-        when the operation completes
-      * Almost all methods of ChannelOutboundHandler are passed an instance of
-        ChannelPromise. As a subclass of ChannelFuture, ChannelPromise can also be
-        assigned listeners for asynchronous notification. But ChannelPromise also has
-        writable methods that provide for immediate notification
-        * ChannelPromise setSuccess();
-        * ChannelPromise setFailure(Throwable cause);
-    * Adding a ChannelFutureListener is a matter of calling addListener(ChannelFuture-
-      Listener) on a ChannelFuture instance, and there are two ways to do this
-      * most commonly used is to invoke addListener() on the ChannelFuture that is returned
-        by an outbound operation (for example write())
-        ```
-        ChannelFuture future = channel.write(someMessage);
-        future.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture f) {
-                if (!f.isSuccess()) {
-                    f.cause().printStackTrace();
-                    f.channel().close();
-                }
-            }
-        });
-        ```
-      * add a ChannelFutureListener to the ChannelPromise that is
-        passed as an argument to the ChannelOutboundHandler methods
-        ```
-        public class OutboundExceptionHandler extends ChannelOutboundHandlerAdapter {
-            @Override
-            public void write(ChannelHandlerContext ctx, Object msg,ChannelPromise promise) {
-                promise.addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture f) {
-                    if (!f.isSuccess()) {
-                        f.cause().printStackTrace();
-                        f.channel().close();
-                    }
-                }
-                });
-            }
-        }
-        ```
-      * By calling setSuccess() and setFailure() on ChannelPromise, you can make the
-        status of an operation known as soon as the ChannelHandler method returns to
-        the caller
-    * What happens if your ChannelOutboundHandler itself throws an exception? In this
-      case, Netty itself will notify any listeners that have been registered with the corresponding
-      ChannelPromise
-      
 ### The ChannelHandler family
 * The Channel lifecycle (Channel lifecycle states)
     * ChannelRegistered - The Channel is registered to an EventLoop.
@@ -944,3 +429,525 @@
     * A common reason for installing a single
       ChannelHandler in multiple ChannelPipelines is to gather statistics across
       multiple Channels
+      
+## callback
+* callback is simply a method, a reference to which has been provided to another
+  method
+    * This enables the latter to call the former at an appropriate time
+    * represents one of the most
+      common ways to notify an interested party that an operation has completed
+    * Netty uses callbacks internally when handling events; when a callback is triggered
+      the event can be handled by an implementation of interface ChannelHandler
+    * an example - hooks from ChannelInboundHandlerAdapter: channelActive(ChannelHandlerContext) 
+    is called when a new connection is established
+    
+## future
+* Future
+    * provides another way to notify an application when an operation has completed
+    * acts as a placeholder for the result of an asynchronous operation
+    * it will complete at some point in the future and provide access to the result
+    * JDK ships with interface java.util.concurrent.Future, but the provided
+      implementations allow you only to check manually whether the operation has completed
+      or to block until it does
+    * Netty provides its own
+      implementation, ChannelFuture, for use when an asynchronous operation is executed
+    * ChannelFuture provides additional methods that allow us to register one or
+      more ChannelFutureListener instances
+    * listener’s callback method, operation-
+      Complete(), is called when the operation has completed
+        * listener can then determine
+          whether the operation completed successfully or with an error
+        * If the latter, we
+          can retrieve the Throwable that was produced
+        ```
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) {
+                if (future.isSuccess()){
+                    ByteBuf buffer = Unpooled.copiedBuffer(
+                    "Hello",Charset.defaultCharset());
+                    ChannelFuture wf = future.channel()
+                    .writeAndFlush(buffer);
+                    ....
+                } else {
+                    Throwable cause = future.cause();
+                    cause.printStackTrace();
+                }
+            }
+        });
+        ```
+    * the notification mechanism
+      provided by the ChannelFutureListener eliminates the need for manually checking
+      operation completion
+    * Each of Netty’s outbound I/O operations returns a ChannelFuture
+    * ChannelFutureListener is a more elaborate version of a
+      callback, you’re correct
+    * callbacks and Futures are complementary mechanisms;
+      in combination they make up one of the key building blocks of Netty itself
+
+## Events and handlers
+* Events and handlers
+    * Netty uses distinct events to notify us about changes of state or the status of operations
+    * This allows us to trigger the appropriate action based on the event that has
+      occurred. Such actions might include
+      * Logging
+      * Data transformation
+      * Flow-control
+      * Application logic
+    * Events that may be triggered by inbound data or an
+      associated change of state include
+      * Active or inactive connections
+      * Data reads
+      * User events
+      * Error events
+    * An outbound event is the result of an operation that will trigger an action in the
+      future, which may be
+      * Opening or closing a connection to a remote peer
+      * Writing or flushing data to a socket
+    * you can think of each ChannelHandler instance as a kind of callback to be executed
+      in response to a specific event
+      
+### event loop
+* Event loop
+    * Under the covers,
+      an EventLoop is assigned to each Channel to handle all of the events, including
+      * Registration of interesting events
+      * Dispatching events to ChannelHandlers
+      * Scheduling further actions
+    * EventLoop itself is driven by only one thread that handles all of the I/O events for
+      one Channel and does not change during the lifetime of the EventLoop
+    * This simple
+      and powerful design eliminates any concern you might have about synchronization in
+      your ChannelHandlers, so you can focus on providing the right logic to be executed
+      when there is interesting data to process
+* All Netty servers require the following:
+    * At least one ChannelHandler—This component implements the server’s processing
+      of data received from the client—its business logic
+    * Bootstrapping—This is the startup code that configures the server. At a minimum,
+      it binds the server to the port on which it will listen for connection requests
+* Every Channel has an associated ChannelPipeline, which holds a chain of Channel-
+  Handler instances
+  * By default, a handler will forward the invocation of a handler
+    method to the next one in the chain
+  * Therefore, if exceptionCaught()is not implemented
+    somewhere along the chain, exceptions received will travel to the end of the
+    ChannelPipeline and will be logged
+  * For this reason, your application should supply
+    at least one ChannelHandler that implements exceptionCaught()
+* ChanelHandlers
+    * ChannelHandlers are invoked for different types of events.
+    * Applications implement or extend ChannelHandlers to hook into the event lifecycle
+      and provide custom application logic
+    * Architecturally, ChannelHandlers help to keep your business logic decoupled
+      from networking code. This simplifies development as the code evolves in
+      response to changing requirements
+* EventLoop defines Netty’s core abstraction for handling events that occur during
+  the lifetime of a connection
+  An EventLoopGroup contains one or more EventLoops.
+  * An EventLoop is bound to a single Thread for its lifetime.
+  * All I/O events processed by an EventLoop are handled on its dedicated Thread.
+  * A Channel is registered for its lifetime with a single EventLoop.
+  * A single EventLoop may be assigned to one or more Channels.
+* Note that this design, in which the I/O for a given Channel is executed by the same
+  Thread, virtually eliminates the need for synchronization
+* threading model specifies key aspects of thread management in the
+  context of an OS, programming language, framework, or application
+    * How and
+      when threads are created obviously has a significant impact on the execution of
+      application code, so developers need to understand the trade-offs associated with
+      different models
+* Interface EventLoop
+    * basic idea of an event loop
+        ```
+        while (!terminated) {
+            List<Runnable> readyEvents = blockUntilEventsReady();
+            for (Runnable ev: readyEvents) {
+                ev.run();
+            }
+        }
+        ```
+    * EventLoop is powered by exactly one Thread that never changes,
+      and tasks (Runnable or Callable) can be submitted directly to EventLoop implementations
+      for immediate or scheduled execution
+    * Depending on the configuration and
+      the available cores, multiple EventLoops may be created in order to optimize resource
+      use, and a single EventLoop may be assigned to service multiple Channels
+    * Netty’s EventLoop, while it extends ScheduledExecutorService, defines
+      only one method, parent()
+      * is
+        intended to return a reference to the EventLoopGroup to which the current Event-
+        Loop implementation instance belongs
+    * Events and tasks are executed in FIFO (firstin-
+      first-out) order
+* I/O and event handling in Netty 4
+    * events triggered by I/O operations flow through a
+      ChannelPipeline that has one or more installed ChannelHandlers
+    * The method calls
+      that propagate these events can then be intercepted by the ChannelHandlers and the
+      events processed as required
+    * Therefore, in Netty 4 all I/O operations and events are handled
+      by the Thread that has been assigned to the EventLoop
+* Task scheduling
+    * A common use case is to send a heartbeat message to a
+      remote peer to check whether the connection is still alive
+      * If there is no response, you
+        know you can close the channel
+    * The ScheduledExecutorService implementation has limitations, such as the fact that
+      extra threads are created as part of pool management
+    * Scheduling a task with EventLoop
+        ```
+        Channel ch = ...
+        ScheduledFuture<?> future = ch.eventLoop().schedule(
+            new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("60 seconds later");
+                }
+        }, 60, TimeUnit.SECONDS); // delay
+        ```
+    * Scheduling a recurring task with EventLoop
+        ```
+        Channel ch = ...
+        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(
+            new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("Run every 60 seconds");
+                }
+        }, 60, 60, TimeUnit.Seconds);
+        ```
+    * Canceling a task using ScheduledFuture
+        ```
+        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(...);
+        // Some other code that runs...
+        boolean mayInterruptIfRunning = false;
+        future.cancel(mayInterruptIfRunning);
+        ```
+* Thread management
+    * The superior performance of Netty’s threading model hinges on determining the
+      identity of the currently executing Thread
+      * that is, whether or not it is the one assigned
+        to the current Channel and its EventLoop (EventLoop is responsible
+                                                  for handling all events for a Channel during its lifetime)
+    * If the calling Thread is that of the EventLoop, the code block in question is executed
+        * Otherwise, the EventLoop schedules a task for later execution and puts it in an
+          internal queue
+        * When the EventLoop next processes its events, it will execute those in
+          the queue
+    * This explains how any Thread can interact directly with the Channel without
+      requiring synchronization in the ChannelHandlers
+    * Note that each EventLoop has its own task queue, independent of that of any other
+      EventLoop
+    * Never put a long-running task in the execution queue,
+      because it will block any other task from executing on the same thread.
+        * If you must
+          make blocking calls or execute long-running tasks, we advise the use of a dedicated
+          EventExecutor.
+* EventLoop/thread allocation
+    * EventLoops that service I/O and events for Channels are contained in an Event-
+      LoopGroup
+    * The manner in which EventLoops are created and assigned varies according
+      to the transport implementation
+    * ASYNCHRONOUS TRANSPORTS
+        * Asynchronous implementations use only a few EventLoops (and their associated
+          Threads), and in the current model these may be shared among Channels
+        * This allows
+          many Channels to be served by the smallest possible number of Threads, rather than
+          assigning a Thread per Channel
+        * The EventLoops (and their Threads) are allocated directly
+          when the EventLoopGroup is created to ensure that they will be available when needed
+        * EventLoopGroup is responsible for allocating an EventLoop to each newly created
+          Channel
+        * the same EventLoop may be assigned to multiple Channels
+        * Each EventLoop handles all events and tasks for all the channels assigned to it.
+          Each EventLoop is associated with one Thread.
+        * Once a Channel has been assigned an EventLoop, it will use this EventLoop (and the
+          associated Thread) throughout its lifetime
+        * Because an EventLoop usually powers more than one Channel, ThreadLocal will be
+          the same for all associated Channels
+          * This makes it a poor choice for implementing a
+            function such as state tracking
+          * However, in a stateless context it can still be useful for
+            sharing heavy or expensive objects, or even events, among Channels
+    * BLOCKING TRANSPORTS
+        * one EventLoop (and its Thread) is assigned to each Channel
+        * it is guaranteed that the I/O events of each Channel will be handled
+          by only one Thread—the one that powers the Channel’s EventLoop
+
+## bootstrapping
+* Bootstrapping the server
+    * bootstrapping involves
+        * Bind to the port on which the server will listen for and accept incoming connection
+          requests
+        * Configure Channels to notify an EchoServerHandler instance about inbound
+          messages
+    * transport - in the standard, multilayered view
+      of networking protocols, the transport layer is the one that provides services for endto-
+      end or host-to-host communications
+      * Internet communications are based on the TCP transport. NIO transport refers to a
+        transport that’s mostly identical to TCP except for server-side performance enhancements
+        provided by the Java NIO implementation
+    * The following steps are required in bootstrapping:
+      * Create a ServerBootstrap instance to bootstrap and bind the server.
+      * Create and assign an NioEventLoopGroup instance to handle event processing,
+      such as accepting new connections and reading/writing data.
+      * Specify the local InetSocketAddress to which the server binds.
+      * Initialize each new Channel with an EchoServerHandler instance.
+      * Call ServerBootstrap.bind() to bind the server.
+    * NIO is used in this example because it’s currently the most widely used transport,
+      thanks to its scalability and thoroughgoing asynchrony
+    * When a
+      new connection is accepted, a new child Channel will be created, and the Channel-
+      Initializer will add an instance of your EchoServerHandler to the Channel’s
+      ChannelPipeline
+      * this handler will receive notifications
+        about inbound messages
+* Bootstrapping the client
+    * bootstrapping a client is similar to bootstrapping a
+      server, with the difference that instead of binding to a listening port the client uses
+      host and port parameters to connect to a remote address, here that of the Echo server
+* bootstrapping an
+  application is the process of configuring it to run—though the details of the process
+  may not be as simple as its definition, especially in network applications
+* Bootstrap classes
+    * Rather than thinking of the concrete classes as server and client bootstraps, it’s helpful
+      to keep in mind the distinct application functions they’re intended to support
+        * a server devotes a parent channel to accepting connections from clients and
+          creating child channels for conversing with them
+        * a client will most likely
+          require only a single, non-parent channel for all network interactions
+    * The bootstrapping steps common to both application types are handled by Abstract-
+      Bootstrap
+      * specific to clients - Bootstrap
+      * specific to servers - ServerBootstrap
+    * bootstrap classes Cloneable
+        * You’ll sometimes need to create multiple channels that have similar or identical settings
+        * Note that this creates only a shallow copy of the bootstrap’s EventLoopGroup, so
+          the latter will be shared among all of the cloned channels
+        * This is acceptable, as the
+          cloned channels are often short-lived, a typical case being a channel created to make
+          an HTTP request
+    * public abstract class AbstractBootstrap<B extends AbstractBootstrap<B,C>,C extends Channel>
+        * subclass B is a type parameter to the superclass, so that a reference
+          to the runtime instance can be returned to support method chaining
+        * public class Bootstrap extends AbstractBootstrap<Bootstrap,Channel>
+        * public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap,ServerChannel>
+* Bootstrapping clients and connectionless protocols
+    * methods: p. 109 110
+* Channel and EventLoopGroup compatibility
+    * you can’t mix components having different
+      prefixes, such as NioEventLoopGroup and OioSocketChannel
+    ```
+    Exception in thread "main" java.lang.IllegalStateException:
+    incompatible event loop type: io.netty.channel.nio.NioEventLoop at
+    io.netty.channel.AbstractChannel$AbstractUnsafe.register(
+    AbstractChannel.java:571)
+    ```
+* before you call bind() or connect() you must call all the following
+  methods to set up the required components.
+  * group()
+  * channel() or channnelFactory()
+  * handler() - it’s needed to configure the ChannelPipeline
+  * Failure to do so will cause an IllegalStateException
+* Bootstrapping servers
+    * Methods p. 113
+* Bootstrapping a server
+    * childHandler(), childAttr(), and childOption()
+        * ServerChannel implementations
+          are responsible for creating child Channels, which represent accepted connections
+        * ServerBootstrap, which bootstraps ServerChannels, provides these methods to
+          simplify the task of applying settings to the ChannelConfig member of an accepted
+          Channel
+    1. A ServerChannel is created
+       when bind() is called
+    1. A new Channel is created
+       by the ServerChannel when
+       a connection is accepted
+* Bootstrapping clients from a Channel
+    * Suppose your server is processing a client request that requires it to act as a client to
+      a third system
+      * This can happen when an application, such as a proxy server, has to
+        integrate with an organization’s existing systems, such as web services or databases
+      * In
+        such cases you’ll need to bootstrap a client Channel from a ServerChannel
+    * You could create a new Bootstrap as described in section 8.2.1, but this is not the
+      most efficient solution, as it would require you to define another EventLoop for the new
+      client Channel
+        * This would produce additional threads, necessitating context switching
+          when exchanging data between the accepted Channel and the client Channel
+    * A better solution is to share the EventLoop of the accepted Channel by passing it to
+      the group() method of the Bootstrap
+        * Because all Channels assigned to an EventLoop
+          use the same thread, this avoids the extra thread creation and related context-switching
+          mentioned previously
+    * p. 116 (project)
+* Adding multiple ChannelHandlers during a bootstrap
+    * In all of the code examples we’ve shown, we’ve called handler() or childHandler()
+      during the bootstrap process to add a single ChannelHandler
+        * This may be sufficient
+          for simple applications, but it won’t meet the needs of more complex ones
+        * For example,
+          an application that has to support multiple protocols will have many Channel-
+          Handlers, the alternative being a large and unwieldy class
+    * As you’ve seen repeatedly, you can deploy as many ChannelHandlers as you require
+      by chaining them together in a ChannelPipeline
+    * But how can you do this if you can
+      set only one ChannelHandler during the bootstrapping process
+        * Netty supplies a special subclass of ChannelInboundHandlerAdapter
+            ```
+            public abstract class ChannelInitializer<C extends Channel>
+            extends ChannelInboundHandlerAdapter
+            ```
+            with method
+            ```
+            protected abstract void initChannel(C ch) throws Exception;
+            ```
+        * provides an easy way to add multiple ChannelHandlers to a Channel-
+          Pipeline
+        * You simply provide your implementation of ChannelInitializer to the
+          bootstrap, and once the Channel is registered with its EventLoop your version of init-
+          Channel() is called
+        * After the method returns, the ChannelInitializer instance
+          removes itself from the ChannelPipeline
+        ```
+        final class ChannelInitializerImpl extends ChannelInitializer<Channel> {
+            @Override
+            protected void initChannel(Channel ch) throws Exception {
+                ChannelPipeline pipeline = ch.pipeline();
+                pipeline.addLast(new HttpClientCodec());
+                pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
+            }
+        }
+        ```
+        * If your application makes use of numerous ChannelHandlers, define your own Channel-
+          Initializer to install them in the pipeline
+* Using Netty ChannelOptions and attributes
+    * Manually configuring every channel when it’s created could become quite tedious
+    * Instead, you can use option() to apply ChannelOptions
+      to a bootstrap
+    * The values you provide will be applied automatically to all Channels
+      created in the bootstrap
+    * ChannelOptions available include low-level connection
+      details such as keep-alive or timeout properties and buffer settings
+    * Consider, for example, a server application that tracks the relationship between
+      users and Channels
+      * This can be accomplished by storing the user’s ID as an attribute
+        of a Channel
+      * A similar technique could be used to route messages to users based on
+        their ID or to shut down a channel if there is low activity
+      * p. 118
+      ```
+      final AttributeKey<Integer> id = new AttributeKey<Integer>("ID");
+      Integer idValue = ctx.channel().attr(id).get();
+      
+      bootstrap.option(ChannelOption.SO_KEEPALIVE,true)
+      .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000);
+      bootstrap.attr(id, 123456);
+      ```
+* Bootstrapping DatagramChannels
+    * Bootstrap can be used for connectionless protocols as well
+    * Netty provides various
+      DatagramChannel implementations for this purpose
+    * The only difference is that you
+      don’t call connect() but only bind()
+* Shutdown
+    * You could, of course, just let the JVM handle everything on
+      exiting, but this wouldn’t meet the definition of graceful, which refers to releasing
+      resources cleanly
+    * you need to shut down the EventLoopGroup, which will handle any
+                                                pending events and tasks and subsequently release all active threads
+    * This is a matter
+      of calling EventLoopGroup.shutdownGracefully()
+    * This call will return a Future,
+      which is notified when the shutdown completes
+    * Note that shutdownGracefully() is
+      also an asynchronous operation, so you’ll need to either block until it completes or
+      register a listener with the returned Future to be notified of completion
+      ```
+      // block until the group has shutdown
+      future.syncUninterruptibly();
+      ```
+
+### Exception handling
+* Handling inbound exceptions
+    * If an exception is thrown during processing of an inbound event, it will start to flow
+      through the ChannelPipeline starting at the point in the ChannelInboundHandler
+      where it was triggered
+    * To handle such an inbound exception, you need to override
+      the following method in your ChannelInboundHandler implementation
+      ```
+      public void exceptionCaught(
+      ChannelHandlerContext ctx, Throwable cause) throws Exception
+      ```
+      example
+      ```
+      public class InboundExceptionHandler extends ChannelInboundHandlerAdapter {
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            cause.printStackTrace();
+            ctx.close();
+        }
+      }
+      ```
+    * ChannelInboundHandler that implements the preceding logic is
+      usually placed last in the ChannelPipeline (exception will continue to flow in the inbound direction)
+    * If you don’t implement any handling for inbound exceptions (or don’t consume
+      the exception), Netty will log the fact that the exception wasn’t handled
+    * summarize
+      * The default implementation of ChannelHandler.exceptionCaught() forwards
+      the current exception to the next handler in the pipeline.
+      * If an exception reaches the end of the pipeline, it’s logged as unhandled.
+      * To define custom handling, you override exceptionCaught(). It’s then your
+      decision whether to propagate the exception beyond that point.
+* Handling outbound exceptions
+    * The options for handling normal completion and exceptions in outbound operations
+      are based on the following notification mechanisms:
+      * Every outbound operation returns a ChannelFuture. The ChannelFuture-
+        Listeners registered with a ChannelFuture are notified of success or error
+        when the operation completes
+      * Almost all methods of ChannelOutboundHandler are passed an instance of
+        ChannelPromise. As a subclass of ChannelFuture, ChannelPromise can also be
+        assigned listeners for asynchronous notification. But ChannelPromise also has
+        writable methods that provide for immediate notification
+        * ChannelPromise setSuccess();
+        * ChannelPromise setFailure(Throwable cause);
+    * Adding a ChannelFutureListener is a matter of calling addListener(ChannelFuture-
+      Listener) on a ChannelFuture instance, and there are two ways to do this
+      * most commonly used is to invoke addListener() on the ChannelFuture that is returned
+        by an outbound operation (for example write())
+        ```
+        ChannelFuture future = channel.write(someMessage);
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture f) {
+                if (!f.isSuccess()) {
+                    f.cause().printStackTrace();
+                    f.channel().close();
+                }
+            }
+        });
+        ```
+      * add a ChannelFutureListener to the ChannelPromise that is
+        passed as an argument to the ChannelOutboundHandler methods
+        ```
+        public class OutboundExceptionHandler extends ChannelOutboundHandlerAdapter {
+            @Override
+            public void write(ChannelHandlerContext ctx, Object msg,ChannelPromise promise) {
+                promise.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture f) {
+                    if (!f.isSuccess()) {
+                        f.cause().printStackTrace();
+                        f.channel().close();
+                    }
+                }
+                });
+            }
+        }
+        ```
+      * By calling setSuccess() and setFailure() on ChannelPromise, you can make the
+        status of an operation known as soon as the ChannelHandler method returns to
+        the caller
+    * What happens if your ChannelOutboundHandler itself throws an exception? In this
+      case, Netty itself will notify any listeners that have been registered with the corresponding
+      ChannelPromise
