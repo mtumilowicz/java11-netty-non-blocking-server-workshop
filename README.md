@@ -544,161 +544,68 @@ or application
         the Channel’s EventLoop
 
 ## bootstrapping
-* Bootstrapping the server
-    * bootstrapping involves
-        * Bind to the port on which the server will listen for and accept incoming connection requests
-        * Configure Channels to notify an EchoServerHandler instance about inbound messages
-    * transport - in the standard, multilayered view of networking protocols, the transport layer is the one that 
-    provides services for endto-end or host-to-host communications
-        * Internet communications are based on the TCP transport. NIO transport refers to a transport that’s mostly 
-        identical to TCP except for server-side performance enhancements provided by the Java NIO implementation
-    * The following steps are required in bootstrapping:
-        * Create a ServerBootstrap instance to bootstrap and bind the server.
-        * Create and assign an NioEventLoopGroup instance to handle event processing, such as accepting new connections 
-        and reading/writing data.
-        * Specify the local InetSocketAddress to which the server binds.
-        * Initialize each new Channel with an EchoServerHandler instance.
-        * Call ServerBootstrap.bind() to bind the server.
-    * NIO is used in this example because it’s currently the most widely used transport, thanks to its scalability 
-    and thoroughgoing asynchrony
-    * When a new connection is accepted, a new child Channel will be created, and the ChannelInitializer will add an 
-    instance of your EchoServerHandler to the Channel’s ChannelPipeline
-        * this handler will receive notifications about inbound messages
-* Bootstrapping the client
-        * bootstrapping a client is similar to bootstrapping a server, with the difference that instead of binding to 
-        a listening port the client uses host and port parameters to connect to a remote address, here that of the 
-        Echo server
-* bootstrapping an application is the process of configuring it to run—though the details of the process may not be 
-as simple as its definition, especially in network applications
-* Bootstrap classes
-    * Rather than thinking of the concrete classes as server and client bootstraps, it’s helpful to keep in mind the 
-    distinct application functions they’re intended to support
-        * a server devotes a parent channel to accepting connections from clients and creating child channels for 
-        conversing with them
-        * a client will most likely require only a single, non-parent channel for all network interactions
-    * The bootstrapping steps common to both application types are handled by AbstractBootstrap
-        * specific to clients - Bootstrap
-        * specific to servers - ServerBootstrap
-    * bootstrap classes Cloneable
-        * You’ll sometimes need to create multiple channels that have similar or identical settings
-        * Note that this creates only a shallow copy of the bootstrap’s EventLoopGroup, so the latter will be shared 
-        among all of the cloned channels
-        * This is acceptable, as the cloned channels are often short-lived, a typical case being a channel created 
-        to make an HTTP request
-    * public abstract class AbstractBootstrap<B extends AbstractBootstrap<B,C>,C extends Channel>
-        * subclass B is a type parameter to the superclass, so that a reference to the runtime instance can be 
-        returned to support method chaining
-        * public class Bootstrap extends AbstractBootstrap<Bootstrap,Channel>
-        * public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap,ServerChannel>
+* NIO transport refers to a transport that’s mostly  identical to TCP except for server-side performance enhancements 
+provided by the Java NIO implementation
+* The following steps are required in bootstrapping:
+    * create a ServerBootstrap instance to bootstrap and bind the server
+    * create and assign an NioEventLoopGroup instance to handle event processing, such as accepting new connections 
+    and reading/writing data
+    * create and assign an NioServerSocketChannel as a channel implementation to be used 
+* when a new connection is accepted, a new child Channel will be created, and the `ChannelInitializer` will add an 
+instance of your `EchoServerHandler` to the Channel’s `ChannelPipeline`
+* bootstrapping a client is similar to bootstrapping a server - instead of binding to a listening port the client 
+connects to a remote address
+* a server devotes a parent channel to accepting connections from clients and creating child channels for 
+conversing with them
+    * a client will most likely require only a single, non-parent channel for all network interactions
+
 * Bootstrapping clients and connectionless protocols
-    * methods: p. 109 110
-* Channel and EventLoopGroup compatibility
-    * you can’t mix components having different prefixes, such as NioEventLoopGroup and OioSocketChannel
-    ```
-    Exception in thread "main" java.lang.IllegalStateException:
-    incompatible event loop type: io.netty.channel.nio.NioEventLoop at
-    io.netty.channel.AbstractChannel$AbstractUnsafe.register(
-    AbstractChannel.java:571)
-    ```
-* before you call bind() or connect() you must call all the following methods to set up the required components.
-  * group()
-  * channel() or channnelFactory()
-  * handler() - it’s needed to configure the ChannelPipeline
-  * Failure to do so will cause an IllegalStateException
+    * group(EventLoopGroup) Sets the EventLoopGroup that will handle all events for the Channel
+    * channel(Class<? extends C>) specifies the Channel implementation class (C extends Channel)
+    * handler(ChannelHandler) Sets the ChannelHandler that’s added to the
+      ChannelPipeline to receive event notification
+    * remoteAddress(SocketAddress) - Sets the remote address
+    * ChannelFuture connect() - Connects to the remote peer
 * Bootstrapping servers
-    * Methods p. 113
-* Bootstrapping a server
-    * childHandler(), childAttr(), and childOption()
-        * ServerChannel implementations are responsible for creating child Channels, which represent accepted 
-        connections
-        * ServerBootstrap, which bootstraps ServerChannels, provides these methods to simplify the task of applying 
-        settings to the ChannelConfig member of an accepted Channel
+    * group Sets the EventLoopGroup to be used by the ServerBootstrap . This
+      EventLoopGroup serves the I/O of the ServerChannel and accepted
+      Channel s.
+    * channel Sets the class of the ServerChannel to be instantiated.
+    * localAddress Specifies the local address the ServerChannel should be bound to
+    * childHandler Sets the ChannelHandler that’s added to the ChannelPipeline of
+      accepted Channels
+    * The difference between handler() and childHandler() is that the former adds a handler that’s processed by the 
+    accepting ServerChannel, whereas childHandler() adds a handler that’s processed by an accepted Channel, which 
+    represents a socket bound to a remote peer
+    
+* ServerChannel implementations are responsible for creating child Channels, which represent accepted 
+connections
     1. A ServerChannel is created when bind() is called
     1. A new Channel is created by the ServerChannel when a connection is accepted
-* Bootstrapping clients from a Channel
-    * Suppose your server is processing a client request that requires it to act as a client to a third system
-        * This can happen when an application, such as a proxy server, has to integrate with an organization’s existing 
-        systems, such as web services or databases
-        * In such cases you’ll need to bootstrap a client Channel from a ServerChannel
-    * You could create a new Bootstrap as described in section 8.2.1, but this is not the most efficient solution, as 
-    it would require you to define another EventLoop for the new client Channel
-        * This would produce additional threads, necessitating context switching when exchanging data between the 
-        accepted Channel and the client Channel
+    
+* Suppose your server is processing a client request that requires it to act as a client to a third system
+    * In such cases you’ll need to bootstrap a client Channel from a ServerChannel
+* You could create a new Bootstrap, but this is not the most efficient solution, as it would require you to define 
+another EventLoop for the new client Channel
+    * This would produce additional threads, necessitating context switching when exchanging data between the 
+    accepted Channel and the client Channel
     * A better solution is to share the EventLoop of the accepted Channel by passing it to the group() method of the 
     Bootstrap
         * Because all Channels assigned to an EventLoop use the same thread, this avoids the extra thread creation 
         and related context-switching mentioned previously
-    * p. 116 (project)
-* Adding multiple ChannelHandlers during a bootstrap
-    * In all of the code examples we’ve shown, we’ve called handler() or childHandler() during the bootstrap process 
-    to add a single ChannelHandler
-        * This may be sufficient for simple applications, but it won’t meet the needs of more complex ones
-        * For example, an application that has to support multiple protocols will have many ChannelHandlers, the 
-        alternative being a large and unwieldy class
-    * As you’ve seen repeatedly, you can deploy as many ChannelHandlers as you require by chaining them together 
-    in a ChannelPipeline
-    * But how can you do this if you can set only one ChannelHandler during the bootstrapping process
-        * Netty supplies a special subclass of ChannelInboundHandlerAdapter
-            ```
-            public abstract class ChannelInitializer<C extends Channel>
-            extends ChannelInboundHandlerAdapter
-            ```
-            with method
-            ```
-            protected abstract void initChannel(C ch) throws Exception;
-            ```
-        * provides an easy way to add multiple ChannelHandlers to a ChannelPipeline
-        * You simply provide your implementation of ChannelInitializer to the bootstrap, and once the Channel is 
-        registered with its EventLoop your version of initChannel() is called
-        * After the method returns, the ChannelInitializer instance removes itself from the ChannelPipeline
-        ```
-        final class ChannelInitializerImpl extends ChannelInitializer<Channel> {
-            @Override
-            protected void initChannel(Channel ch) throws Exception {
-                ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast(new HttpClientCodec());
-                pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-            }
-        }
-        ```
-        * If your application makes use of numerous ChannelHandlers, define your own ChannelInitializer to install 
-        them in the pipeline
-* Using Netty ChannelOptions and attributes
-    * Manually configuring every channel when it’s created could become quite tedious
-    * Instead, you can use option() to apply ChannelOptions to a bootstrap
-    * The values you provide will be applied automatically to all Channels created in the bootstrap
-    * ChannelOptions available include low-level connection details such as keep-alive or timeout properties and 
-    buffer settings
-    * Consider, for example, a server application that tracks the relationship between users and Channels
-        * This can be accomplished by storing the user’s ID as an attribute of a Channel
-        * A similar technique could be used to route messages to users based on their ID or to shut down a channel 
-        if there is low activity
-        * p. 118
-        ```
-        final AttributeKey<Integer> id = new AttributeKey<Integer>("ID");
-        Integer idValue = ctx.channel().attr(id).get();
-        
-        bootstrap.option(ChannelOption.SO_KEEPALIVE,true)
-        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000);
-        bootstrap.attr(id, 123456);
-        ```
-* Bootstrapping DatagramChannels
-    * Bootstrap can be used for connectionless protocols as well
-    * Netty provides various DatagramChannel implementations for this purpose
-    * The only difference is that you don’t call connect() but only bind()
+* how can you do this if you can set only one ChannelHandler during the bootstrapping process?
+    * Netty supplies a special subclass of ChannelInboundHandlerAdapter
+    * provides an easy way to add multiple ChannelHandlers to a ChannelPipeline
+    * You simply provide your implementation of ChannelInitializer to the bootstrap, and once the Channel is 
+    registered with its EventLoop your version of initChannel() is called
+    * After the method returns, the ChannelInitializer instance removes itself from the ChannelPipeline
 * Shutdown
-    * You could, of course, just let the JVM handle everything on exiting, but this wouldn’t meet the definition of 
-    graceful, which refers to releasing resources cleanly
     * you need to shut down the EventLoopGroup, which will handle any pending events and tasks and subsequently release 
     all active threads
-    * This is a matter of calling EventLoopGroup.shutdownGracefully()
-    * This call will return a Future, which is notified when the shutdown completes
-    * Note that shutdownGracefully() is also an asynchronous operation, so you’ll need to either block until it 
-    completes or register a listener with the returned Future to be notified of completion
-      ```
-      // block until the group has shutdown
-      future.syncUninterruptibly();
-      ```
+        * This is a matter of calling EventLoopGroup.shutdownGracefully()
+            * This call will return a Future, which is notified when the shutdown completes
+            * Note that shutdownGracefully() is also an asynchronous operation, so you’ll need to either block until it 
+            completes or register a listener with the returned Future to be notified of completion
 
 ### Exception handling
 * if an exception is thrown during processing of an inbound event, it will start to flow through the ChannelPipeline 
