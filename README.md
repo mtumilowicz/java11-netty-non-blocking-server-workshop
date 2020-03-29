@@ -1,5 +1,8 @@
 # java11-netty-non-blocking-server-basics
 
+* references
+    * https://stackoverflow.com/questions/22842153/netty-4-buffers-pooled-vs-unpooled/22907131
+
 ## preface
 * consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
 message even while sending one
@@ -50,27 +53,20 @@ message even while sending one
     * allows a JVM implementation to allocate memory via native calls
     * aims to avoid copying the buffer’s contents to (or from) an intermediate buffer before (or after) each 
     invocation of a native I/O operation
-* to reduce the overhead of allocating and deallocating memory, Netty implements pooling with the interface 
-`ByteBufAllocator`
+* two `ByteBufAllocator` implementations
     * `PooledByteBufAllocator`
+        * pools ByteBuf instances to improve performance and minimize memory fragmentation
+        * uses memory allocation `jemalloc`
     * `UnpooledByteBufAllocator`
-* Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
-need to ensure that there are no resource leaks.
-    * Netty uses reference counting to handle pooled ByteBufs
-* Because consuming inbound data and releasing it is such a common task, Netty provides a special 
-ChannelInboundHandler implementation called SimpleChannelInboundHandler
-    * This implementation will automatically release a message once it’s consumed by channelRead0()
-    * It’s important not only to release resources but also to notify the ChannelPromise
-    * Otherwise a situation might arise where a ChannelFutureListener has not been notified about a message that 
-    has been handled
-    * it is the responsibility of the user to call ReferenceCountUtil.release() if a message is consumed or 
-    discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
-    * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
+        * doesn’t pool ByteBuf instances and returns a new instance every time it’s called
+* whenever you act on data by calling `ChannelInboundHandler.channelRead()` or `ChannelOutboundHandler.write()`, you 
+need to ensure that there are no resource leaks
+* Netty uses reference counting to handle pooled ByteBufs
+* `SimpleChannelInboundHandler` (`ChannelInboundHandler` implementation) will automatically release a message once 
+it’s consumed by `channelRead0()`
+    * `channelRead()` has in finally block: `ReferenceCountUtil.release()`
+    * if the message reaches the actual transport layer, it will be released automatically when it’s written or 
     the Channel is closed
-* when a `ChannelInboundHandler` implementation overrides `channelRead()`, it is responsible for explicitly releasing 
-the memory associated with pooled `ByteBuf` instances `ReferenceCountUtil.release(msg)`
-    * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
-    messages for later use, as these will become invalid
     
 ### ChannelPipeline
 * ChannelPipeline
