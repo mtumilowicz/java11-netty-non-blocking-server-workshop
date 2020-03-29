@@ -2,6 +2,7 @@
 
 * references
     * https://stackoverflow.com/questions/22842153/netty-4-buffers-pooled-vs-unpooled/22907131
+    * https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html
 
 ## preface
 * consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
@@ -22,15 +23,17 @@ message even while sending one
     * `ChannelInactive` - not connected to the remote peer.
     * `ChannelUnregistered` - not registered to an EventLoop
 * `Channel` is a basic construct of Java NIO
-    * an open connection to an entity (hardware device, file, network socket) 
-    that is capable of performing I/O operations (reading or writing)
+    * an open connection to an entity (hardware device, file, network socket)  that is capable of performing I/O 
+    operations (reading or writing)
     
 ### ChannelHandler
 * supports almost any kind of action, example: converting data, handling exceptions etc.
     * help to separate business logic from networking code
+    * generic container for any code that processes events
 * is a kind of callback to be executed in response to a specific event
     * implemented to hook into the event lifecycle and provide custom logic
 * when added to a `ChannelPipeline` - gets `ChannelHandlerContext` (binding between handler and the pipeline)
+    * `ChannelHandlerContext` enables a `ChannelHandler` to interact with other handlers
 * lifecycle
     * each method accepts a `ChannelHandlerContext` argument
     * `handlerAdded` - called when added to a `ChannelPipeline`
@@ -69,60 +72,65 @@ it’s consumed by `channelRead0()`
     the Channel is closed
     
 ### ChannelPipeline
-* ChannelPipeline
-    * ChannelPipeline provides a container for a chain of ChannelHandlers and defines an API for propagating the 
-    flow of inbound and outbound events along the chain
-    * When a Channel is created, it is automatically assigned its own ChannelPipeline
-    * ChannelHandlers are installed in the ChannelPipeline as follows:
-        * A ChannelInitializer implementation is registered with a ServerBootstrap
-        * When ChannelInitializer.initChannel() is called, the ChannelInitializer installs a custom set of 
-        ChannelHandlers in the pipeline
-        * The ChannelInitializer removes itself from the ChannelPipeline
-    * ChannelHandler has been designed specifically to support a broad range of uses, and you can think of it as a 
-    generic container for any code that processes events (including data) coming and going through the ChannelPipeline
-    * movement of an event through the pipeline is the work of the ChannelHandlers that have been installed during 
-    the initialization, or bootstrapping phase of the application
-    * These objects receive events, execute the processing logic for which they have been implemented, and pass the 
-    data to the next handler in the chain
-    * The order in which they are executed is determined by the order in which they were added
-    * From the point of view of a client application, events are said to be outbound if the movement is from the 
-    client to the server and inbound in the opposite case
-        * both inbound and outbound handlers can be installed in the same pipeline
-    * If a message or any other inbound event is read, it will start from the head of the pipeline and be passed 
-    to the first ChannelInboundHandler
-        * This handler may or may not actually modify the data, depending on its specific function, after which the 
-        data will be passed to the next ChannelInboundHandler in the chain
-        * Finally, the data will reach the tail of the pipeline, at which point all processing is terminated
-    * The outbound movement of data (that is, data being written) is identical in concept. In this case, data flows 
-    from the tail through the chain of ChannelOutboundHandlers until it reaches the head
-        * Beyond this point, outbound data will reach the network transport, shown here as a Socket
-        * Typically, this will trigger a write operation
-    * There are two ways of sending messages in Netty:
-        * You can write directly to the Channel - causes the message to start from the tail of the ChannelPipeline
-        * write to a ChannelHandlerContext object associated with a ChannelHandler - causes the message to start 
-        from the next handler in the ChannelPipeline
-* Every new Channel that’s created is assigned a new ChannelPipeline
-* Depending on its origin, an event will be handled by either a ChannelInboundHandler or a ChannelOutboundHandler
-* Subsequently it will be forwarded to the next handler of the same supertype by a call to a ChannelHandlerContext 
-implementation
-* ChannelHandlerContext
-    * A ChannelHandlerContext enables a ChannelHandler to interact with its ChannelPipeline and with other handlers
-    * A handler can notify the next ChannelHandler in the ChannelPipeline and even dynamically modify the 
-    ChannelPipeline it belongs to
-* ChannelPipeline is primarily a series of ChannelHandlers
-* ChannelPipeline also provides methods for propagating events through the ChannelPipeline itself
-* If an inbound event is triggered, it’s passed from the beginning to the end of the ChannelPipeline
-* Netty always identifies the inbound entry to the ChannelPipeline (the left side) as the beginning and the 
-outbound entry (the right side) as the end
-* As the pipeline propagates an event, it determines whether the type of the next ChannelHandler in the pipeline 
-matches the direction of movement
-    * If not, the ChannelPipeline skips that ChannelHandler and proceeds to the next one, until it finds one 
-    that matches the desired direction
-        * Of course, a handler might implement both ChannelInboundHandler and ChannelOutboundHandler interfaces
-* summary
-    * A ChannelPipeline holds the ChannelHandlers associated with a Channel.
-    * A ChannelPipeline can be modified dynamically by adding and removing ChannelHandlers as needed.
-    * ChannelPipeline has a rich API for invoking actions in response to inbound and outbound events.
+```
+                                               I/O Request
+                                          via Channel or
+                                      ChannelHandlerContext
+                                                    |
++---------------------------------------------------+---------------+
+|                           ChannelPipeline         |               |
+|                                                  \|/              |
+|    +---------------------+            +-----------+----------+    |
+|    | Inbound Handler  N  |            | Outbound Handler  1  |    |
+|    +----------+----------+            +-----------+----------+    |
+|              /|\                                  |               |
+|               |                                  \|/              |
+|    +----------+----------+            +-----------+----------+    |
+|    | Inbound Handler N-1 |            | Outbound Handler  2  |    |
+|    +----------+----------+            +-----------+----------+    |
+|              /|\                                  .               |
+|               .                                   .               |
+|               .                                   .               |
+|               .                                  \|/              |
+|    +----------+----------+            +-----------+----------+    |
+|    | Inbound Handler  2  |            | Outbound Handler M-1 |    |
+|    +----------+----------+            +-----------+----------+    |
+|              /|\                                  |               |
+|               |                                  \|/              |
+|    +----------+----------+            +-----------+----------+    |
+|    | Inbound Handler  1  |            | Outbound Handler  M  |    |
+|    +----------+----------+            +-----------+----------+    |
+|              /|\                                  |               |
++---------------+-----------------------------------+---------------+
+                |                                  \|/
++---------------+-----------------------------------+---------------+
+|               |                                   |               |
+|       [ Socket.read() ]                    [ Socket.write() ]     |
+|                                                                   |
+|  Netty Internal I/O Threads (Transport Implementation)            |
++-------------------------------------------------------------------+
+```
+* beginning: the inbound entry to the ChannelPipeline (the left side)
+* the end: outbound entry (the right side)
+* `ChannelPipeline` is primarily a series of `ChannelHandlers` with API for propagating the inbound and outbound 
+events along the chain
+* when a `Channel` is created, is assigned a new `ChannelPipeline`
+* `ChannelHandlers` are installed in the `ChannelPipeline` as follows
+    1. `ChannelInitializer` implementation is registered with a `ServerBootstrap`
+    1. `ChannelInitializer.initChannel()` installs a custom set of `ChannelHandlers` in the pipeline
+    1. The `ChannelInitializer` removes itself from the pipeline
+* `ChannelHandlers` receive events, execute the logic and pass the data to the next handler in the chain
+    * order of execution is determined by the order in which they were added
+* both inbound and outbound handlers can be installed in the same pipeline
+    * depending on its origin, an event will be handled by either a `ChannelInboundHandler` or a 
+    `ChannelOutboundHandler`
+        * handler might implement both interfaces
+    * as the pipeline propagates an event, it determines whether the type of the next `ChannelHandler` matches the 
+    direction of movement
+        * if not skips that `ChannelHandler` and proceeds to the next one
+* two ways of sending messages:
+    * direct write to the Channel - message starts from the tail
+    * write to a `ChannelHandlerContext` (associated with a `ChannelHandler`) - message starts from the next handler
 
 ### ChannelHandlerContext
 * ChannelHandlerContext represents an association between a ChannelHandler and a ChannelPipeline and is created 
