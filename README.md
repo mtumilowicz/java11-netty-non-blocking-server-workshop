@@ -28,31 +28,32 @@ message even while sending one
 * is a kind of callback to be executed in response to a specific event
     * implemented to hook into the event lifecycle and provide custom logic
 * when added to a `ChannelPipeline` - gets `ChannelHandlerContext` (binding between handler and the pipeline)
-* The ChannelHandler lifecycle (ChannelHandler lifecycle methods)
-    * Each method accepts a ChannelHandlerContext argument
-    * handlerAdded - Called when a ChannelHandler is added to a ChannelPipeline
-    * handlerRemoved - Called when a ChannelHandler is removed from a ChannelPipeline
-    * exceptionCaught - Called if an error occurs in the ChannelPipeline during processing
-    * Netty defines the following two important subinterfaces of ChannelHandler:
-        * ChannelInboundHandler—Processes inbound data and state changes of all kinds
-        * ChannelOutboundHandler—Processes outbound data and allows interception
-        of all operations
-* You can use the classes ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter as starting points for 
-your own ChannelHandlers
-* These adapters provide basic implementations of ChannelInboundHandler and ChannelOutboundHandler respectively
-* extends the abstract class ChannelHandlerAdapter
-* ChannelHandlerAdapter also provides the utility method isSharable()
-    * This method returns true if the implementation is annotated as Sharable, indicating that it can be added 
-    to multiple ChannelPipelines
-* When a ChannelInboundHandler implementation overrides channelRead(), it is responsible for explicitly releasing 
-the memory associated with pooled ByteBuf instances `ReferenceCountUtil.release(msg)`
-    * But managing resources in this way can be cumbersome
-    * A simpler alternative is to use SimpleChannelInboundHandler
-    * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
-    messages for later use, as these will become invalid
+* lifecycle
+    * each method accepts a `ChannelHandlerContext` argument
+    * `handlerAdded` - called when added to a `ChannelPipeline`
+    * `handlerRemoved` - called when removed from a `ChannelPipeline`
+    * `exceptionCaught` - called if an error occurs in the `ChannelPipeline` during processing
+* interfaces:
+    * `ChannelInboundHandler`
+        * implementation: `ChannelInboundHandlerAdapter`
+    * `ChannelOutboundHandler`
+        * implementation: `ChannelOutboundHandlerAdapter`
+* if the implementation is annotated as `@Sharable,` it means handler can be added to multiple `ChannelPipelines`
         
 ### Resource management
-* Netty’s alternative to ByteBuffer is ByteBuf
+* Netty’s alternative to `ByteBuffer` is `ByteBuf`
+* heap buffers
+    * most frequently used `ByteBuf` pattern
+    * stores the data in the heap space
+* direct buffers
+    * `ByteBuf` pattern
+    * allows a JVM implementation to allocate memory via native calls
+    * aims to avoid copying the buffer’s contents to (or from) an intermediate buffer before (or after) each 
+    invocation of a native I/O operation
+* to reduce the overhead of allocating and deallocating memory, Netty implements pooling with the interface 
+`ByteBufAllocator`
+    * `PooledByteBufAllocator`
+    * `UnpooledByteBufAllocator`
 * Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
 need to ensure that there are no resource leaks.
     * Netty uses reference counting to handle pooled ByteBufs
@@ -66,7 +67,11 @@ ChannelInboundHandler implementation called SimpleChannelInboundHandler
     discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
     * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
     the Channel is closed
-        
+* when a `ChannelInboundHandler` implementation overrides `channelRead()`, it is responsible for explicitly releasing 
+the memory associated with pooled `ByteBuf` instances `ReferenceCountUtil.release(msg)`
+    * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
+    messages for later use, as these will become invalid
+    
 ### ChannelPipeline
 * ChannelPipeline
     * ChannelPipeline provides a container for a chain of ChannelHandlers and defines an API for propagating the 
