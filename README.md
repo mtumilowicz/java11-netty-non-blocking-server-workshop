@@ -14,6 +14,7 @@
 * Netty’s alternative to ByteBuffer is ByteBuf
 
 ## channel
+* you can think of each ChannelHandler instance as a kind of callback to be executed in response to a specific event
 * Channel is a basic construct of Java NIO
     * an open connection to an entity such as a hardware device, a file, a network socket, or a program component 
     that is capable of performing one or more distinct I/O operations (reading or writing)
@@ -143,225 +144,73 @@ when an operation has completed (whether or not successfully)
         * A simpler alternative is to use SimpleChannelInboundHandler
         * SimpleChannelInboundHandler releases resources automatically, you shouldn’t store references to any 
         messages for later use, as these will become invalid
-* Interface ChannelOutboundHandler
-    * Outbound operations and data are processed by ChannelOutboundHandler
-    * Its methods are invoked by Channel, ChannelPipeline, and ChannelHandlerContext
-    * A powerful capability of ChannelOutboundHandler is to defer an operation or event on demand, which allows for 
-    sophisticated approaches to request handling
-        * If writing to the remote peer is suspended, for example, you can defer flush operations and resume them later
-    * ChannelOutboundHandler methods
-        * bind(ChannelHandlerContext,SocketAddress,ChannelPromise) - Invoked on request to bind the Channel to a local 
-        address
-        * connect(ChannelHandlerContext,SocketAddress,SocketAddress,ChannelPromise) - Invoked on request to connect the
-        Channel to the remote peer
-        * disconnect(ChannelHandlerContext,ChannelPromise) - Invoked on request to disconnect the Channel from the 
-        remote peer
-        * close(ChannelHandlerContext,ChannelPromise) - Invoked on request to close the Channel
-        * deregister(ChannelHandlerContext,ChannelPromise) - Invoked on request to deregister the Channel from its 
-        EventLoop
-        * read(ChannelHandlerContext) - Invoked on request to read more data from the Channel
-        * flush(ChannelHandlerContext) - Invoked on request to flush queued data to the remote peer through the Channel
-        * write(ChannelHandlerContext,Object,ChannelPromise) - Invoked on request to write data through the Channel 
-        to the remote peer
-    * Most of the methods in ChannelOutboundHandler take a ChannelPromise argument to be notified when the operation 
-    completes. ChannelPromise is a subinterface of ChannelFuture that defines the writable methods, such as 
-    setSuccess() or setFailure(), thus making ChannelFuture immutable
-* ChannelHandler adapters
-    * You can use the classes ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter as starting points for 
-    your own ChannelHandlers
-    * These adapters provide basic implementations of ChannelInboundHandler and ChannelOutboundHandler respectively
-    * extends the abstract class ChannelHandlerAdapter
-    * ChannelHandlerAdapter also provides the utility method isSharable()
-        * This method returns true if the implementation is annotated as Sharable, indicating that it can be added 
-        to multiple ChannelPipelines
-* Resource management
-    * Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
-    need to ensure that there are no resource leaks.
-        * Netty uses reference counting to handle pooled ByteBufs
-    * Netty provides class ResourceLeakDetector, which will sample about 1% of your application’s buffer allocations to
-      check for memory leaks
-    * Leak-detection levels
-        * DISABLED - Disables leak detection. Use this only after extensive testing.
-        * SIMPLE - Reports any leaks found using the default sampling rate of 1%. This is the default
-            level and is a good fit for most cases.
-        * ADVANCED - Reports leaks found and where the message was accessed. Uses the default sampling
-            rate.
-        * PARANOID - Like ADVANCED except that every access is sampled. This has a heavy impact on performance and 
-        should be used only in the debugging phase.
-    * java -Dio.netty.leakDetectionLevel=ADVANCED
-    * release the message `ReferenceCountUtil.release(msg)` // Releases resource
-    * Because consuming inbound data and releasing it is such a common task, Netty provides a special 
-    ChannelInboundHandler implementation called SimpleChannelInboundHandler
-        * This implementation will automatically release a message once it’s consumed by channelRead0()
-    * handle a write()
-        ```
-        ReferenceCountUtil.release(msg);
-        promise.setSuccess(); // Notifies ChannelPromise that data was handled
-        ```
-        * It’s important not only to release resources but also to notify the ChannelPromise
-        * Otherwise a situation might arise where a ChannelFutureListener has not been notified about a message that 
-        has been handled
-        * it is the responsibility of the user to call ReferenceCountUtil.release() if a message is consumed or 
-        discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
-        * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
-        the Channel is closed
-* Interface ChannelPipeline
-    * If you think of a ChannelPipeline as a chain of ChannelHandler instances that intercept the inbound and 
-    outbound events that flow through a Channel, it’s easy to see how the interaction of these ChannelHandlers can 
-    make up the core of an application’s data and event-processing logic
-    * Every new Channel that’s created is assigned a new ChannelPipeline
-        * This association is permanent
-        * This is a fixed operation in Netty’s component lifecycle and requires no action on the part of the developer
-    * Depending on its origin, an event will be handled by either a ChannelInboundHandler or a ChannelOutboundHandler
-    * Subsequently it will be forwarded to the next handler of the same supertype by a call to a ChannelHandlerContext 
-    implementation
-    * ChannelHandlerContext
-        * A ChannelHandlerContext enables a ChannelHandler to interact with its ChannelPipeline and with other handlers
-        * A handler can notify the next ChannelHandler in the ChannelPipeline and even dynamically modify the 
-        ChannelPipeline it belongs to
-    * ChannelPipeline is primarily a series of ChannelHandlers
-    * ChannelPipeline also provides methods for propagating events through the ChannelPipeline itself
-    * If an inbound event is triggered, it’s passed from the beginning to the end of the ChannelPipeline
-    * Netty always identifies the inbound entry to the ChannelPipeline (the left side) as the beginning and the 
-    outbound entry (the right side) as the end
-    * When you’ve finished adding your mix of inbound and outbound handlers to a ChannelPipeline using the 
-    ChannelPipeline.add*() methods, the ordinal of each ChannelHandler is its position from beginning to end as 
-    we just defined them
-    * As the pipeline propagates an event, it determines whether the type of the next ChannelHandler in the pipeline 
-    matches the direction of movement
-        * If not, the ChannelPipeline skips that ChannelHandler and proceeds to the next one, until it finds one 
-        that matches the desired direction
-            * Of course, a handler might implement both ChannelInboundHandler and ChannelOutboundHandler interfaces
-    * Modifying a ChannelPipeline
-        * A ChannelHandler can modify the layout of a ChannelPipeline in real time by adding, removing, or replacing 
-        other ChannelHandlers
-            * It can remove itself from the ChannelPipeline as well
-        * This is one of the most important capabilities of the ChannelHandler
-        * methods
-            * addFirst
-            * addBefore
-            * addAfter
-            * addLast
-            * remove
-                * remove(ChannelHandler handler)
-                * remove(java.lang.String name)
-            * replace
-            * get
-            * context - Returns the ChannelHandlerContext bound to a ChannelHandler
-            * names
-    * Normally each ChannelHandler in the ChannelPipeline processes events that are passed to it by its EventLoop 
-    (the I/O thread). 
-        * It’s critically important not to block this thread as it would have a negative effect on the overall handling 
-        of I/O
-        * Sometimes it may be necessary to interface with legacy code that uses blocking APIs.
-            * For this case, the ChannelPipeline has add() methods that accept an EventExecutorGroup. If an event is 
-            passed to a custom EventExecutorGroup, it will be handled by one of the EventExecutors contained in this 
-            EventExecutorGroup and thus be removed from the EventLoop of the Channel itself
-            * For this use case Netty provides an implementation called DefaultEventExecutorGroup
-    * Firing events
-        * The ChannelPipeline API exposes additional methods for invoking inbound and outbound operations
-        * inbound operations
-            * fireChannelRegistered Calls channelRegistered(ChannelHandlerContext) on the next ChannelInboundHandler 
-            in the ChannelPipeline
-            * fireChannelUnregistered Calls channelUnregistered(ChannelHandlerContext) on the next 
-            ChannelInboundHandler in the ChannelPipeline
-            * fireChannelActive Calls channelActive(ChannelHandlerContext) on the next ChannelInboundHandler in the 
-            ChannelPipeline
-            * fireChannelInactive Calls channelInactive(ChannelHandlerContext) on the next ChannelInboundHandler in 
-            the ChannelPipeline
-            * fireExceptionCaught Calls exceptionCaught(ChannelHandlerContext, Throwable) on the next ChannelHandler 
-            in the ChannelPipeline
-            * fireUserEventTriggered Calls userEventTriggered(ChannelHandlerContext, Object) on the next 
-            ChannelInboundHandler in the ChannelPipeline
-            * fireChannelRead Calls channelRead(ChannelHandlerContext,Object msg) on the next ChannelInboundHandler 
-            in the ChannelPipeline
-            * fireChannelReadComplete Calls channelReadComplete(ChannelHandlerContext) on the next ChannelStateHandler 
-            in the ChannelPipeline    
-        * On the outbound side, handling an event will cause some action to be taken on the underlying socket
-            * bind Binds the Channel to a local address. This will call bind(ChannelHandlerContext, SocketAddress, 
-            ChannelPromise) on the next ChannelOutboundHandler in the ChannelPipeline.
-            * connect Connects the Channel to a remote address. This will call connect(ChannelHandlerContext, 
-            SocketAddress, ChannelPromise) on the next ChannelOutboundHandler in the ChannelPipeline
-            * disconnect Disconnects the Channel. This will call disconnect(ChannelHandlerContext, ChannelPromise) on 
-            the next ChannelOutboundHandler in the ChannelPipeline.
-            * close Closes the Channel. This will call close(ChannelHandlerContext, ChannelPromise) on the next 
-            ChannelOutboundHandler in the ChannelPipeline.
-            * deregister Deregisters the Channel from the previously assigned EventExecutor (the EventLoop). This 
-            will call deregister(ChannelHandlerContext, ChannelPromise) on the next ChannelOutboundHandler in the 
-            ChannelPipeline.
-            * flush Flushes all pending writes of the Channel. This will call flush(ChannelHandlerContext) on the 
-            next ChannelOutboundHandler in the ChannelPipeline.
-            * write Writes a message to the Channel. This will call write(ChannelHandlerContext, Object msg, 
-            ChannelPromise) on the next ChannelOutboundHandler in the ChannelPipeline.
-                * Note: this does not write the message to the underlying Socket, but only queues it. To write it to 
-                the Socket, call flush() or writeAndFlush().
-            * writeAndFlush This is a convenience method for calling write() then flush().
-            * read Requests to read more data from the Channel. This will call read(ChannelHandlerContext) on the 
-            next ChannelOutboundHandler in the ChannelPipeline.
-    * summary
-        * A ChannelPipeline holds the ChannelHandlers associated with a Channel.
-        * A ChannelPipeline can be modified dynamically by adding and removing ChannelHandlers as needed.
-        * ChannelPipeline has a rich API for invoking actions in response to inbound and outbound events.
-* Interface ChannelHandlerContext
-    * ChannelHandlerContext represents an association between a ChannelHandler and a ChannelPipeline and is created 
-    whenever a ChannelHandler is added to a ChannelPipeline
-    * The primary function of a ChannelHandlerContext is to manage the interaction of its associated ChannelHandler 
-    with others in the same ChannelPipeline
-    * ChannelHandlerContext has numerous methods, some of which are also present on Channel and on ChannelPipeline 
-    itself, but there is an important difference
-        * If you invoke these methods on a Channel or ChannelPipeline instance, they propagate through the entire 
-        pipeline
-        * The same methods called on a ChannelHandlerContext will start at the current associated ChannelHandler and 
-        propagate only to the next ChannelHandler in the pipeline that is capable of handling the event
-    * When using the ChannelHandlerContext API, please keep the following points in mind
-        * The ChannelHandlerContext associated with a ChannelHandler never changes, so it’s safe to cache a reference 
-        to it.
-        * ChannelHandlerContext methods, as we explained at the start of this section, involve a shorter event flow 
-        than do the identically named methods available on other classes. This should be exploited where possible to 
-        provide maximum performance.
+    
+### ChannelHandler adapters
+* You can use the classes ChannelInboundHandlerAdapter and ChannelOutboundHandlerAdapter as starting points for 
+your own ChannelHandlers
+* These adapters provide basic implementations of ChannelInboundHandler and ChannelOutboundHandler respectively
+* extends the abstract class ChannelHandlerAdapter
+* ChannelHandlerAdapter also provides the utility method isSharable()
+    * This method returns true if the implementation is annotated as Sharable, indicating that it can be added 
+    to multiple ChannelPipelines
+        
+### Resource management
+* Whenever you act on data by calling ChannelInboundHandler.channelRead() or ChannelOutboundHandler.write(), you 
+need to ensure that there are no resource leaks.
+    * Netty uses reference counting to handle pooled ByteBufs
+* Because consuming inbound data and releasing it is such a common task, Netty provides a special 
+ChannelInboundHandler implementation called SimpleChannelInboundHandler
+    * This implementation will automatically release a message once it’s consumed by channelRead0()
+    * It’s important not only to release resources but also to notify the ChannelPromise
+    * Otherwise a situation might arise where a ChannelFutureListener has not been notified about a message that 
+    has been handled
+    * it is the responsibility of the user to call ReferenceCountUtil.release() if a message is consumed or 
+    discarded and not passed to the next ChannelOutboundHandler in the ChannelPipeline
+    * If the message reaches the actual transport layer, it will be released automatically when it’s written or 
+    the Channel is closed
+        
+### ChannelPipeline
+* Every new Channel that’s created is assigned a new ChannelPipeline
+* Depending on its origin, an event will be handled by either a ChannelInboundHandler or a ChannelOutboundHandler
+* Subsequently it will be forwarded to the next handler of the same supertype by a call to a ChannelHandlerContext 
+implementation
+* ChannelHandlerContext
+    * A ChannelHandlerContext enables a ChannelHandler to interact with its ChannelPipeline and with other handlers
+    * A handler can notify the next ChannelHandler in the ChannelPipeline and even dynamically modify the 
+    ChannelPipeline it belongs to
+* ChannelPipeline is primarily a series of ChannelHandlers
+* ChannelPipeline also provides methods for propagating events through the ChannelPipeline itself
+* If an inbound event is triggered, it’s passed from the beginning to the end of the ChannelPipeline
+* Netty always identifies the inbound entry to the ChannelPipeline (the left side) as the beginning and the 
+outbound entry (the right side) as the end
+* As the pipeline propagates an event, it determines whether the type of the next ChannelHandler in the pipeline 
+matches the direction of movement
+    * If not, the ChannelPipeline skips that ChannelHandler and proceeds to the next one, until it finds one 
+    that matches the desired direction
+        * Of course, a handler might implement both ChannelInboundHandler and ChannelOutboundHandler interfaces
+* summary
+    * A ChannelPipeline holds the ChannelHandlers associated with a Channel.
+    * A ChannelPipeline can be modified dynamically by adding and removing ChannelHandlers as needed.
+    * ChannelPipeline has a rich API for invoking actions in response to inbound and outbound events.
+
+### ChannelHandlerContext
+* ChannelHandlerContext represents an association between a ChannelHandler and a ChannelPipeline and is created 
+whenever a ChannelHandler is added to a ChannelPipeline
+* The primary function of a ChannelHandlerContext is to manage the interaction of its associated ChannelHandler 
+with others in the same ChannelPipeline
+* ChannelHandlerContext has numerous methods, some of which are also present on Channel and on ChannelPipeline 
+itself, but there is an important difference
+    * If you invoke these methods on a Channel or ChannelPipeline instance, they propagate through the entire 
+    pipeline
+    * The same methods called on a ChannelHandlerContext will start at the current associated ChannelHandler and 
+    propagate only to the next ChannelHandler in the pipeline that is capable of handling the event
+    * The ChannelHandlerContext associated with a ChannelHandler never changes, so it’s safe to cache a reference 
+    to it.
 * Using ChannelHandlerContext
-    * Calling write() on the Channel causes a write event to flow all the way through the pipeline
-        ```
-        ChannelHandlerContext ctx = ..;
-        Channel channel = ctx.channel();
-        channel.write(Unpooled.copiedBuffer("Netty in Action", CharsetUtil.UTF_8));
-        ```
-    * Accessing the ChannelPipeline from a ChannelHandlerContext
-        ```
-        ChannelHandlerContext ctx = ..;
-        ChannelPipeline pipeline = ctx.pipeline();
-        pipeline.write(Unpooled.copiedBuffer("Netty in Action", CharsetUtil.UTF_8));
-        ```
     * ChannelHandler passes event to next ChannelHandler in ChannelPipeline using assigned ChannelHandlerContext
-        * ChannelHandlerContext has connection from its ChannelHandler to the next ChannelHandler
-    * Why would you want to propagate an event starting at a specific point in the ChannelPipeline
-        * To reduce the overhead of passing the event through ChannelHandlers that are not interested in it
-        * To prevent processing of the event by handlers that would be interested in the event
-    * To invoke processing starting with a specific ChannelHandler, you must refer to the ChannelHandlerContext 
-    that’s associated with the ChannelHandler before that one
-    * ChannelHandlerContext that’s associated with the ChannelHandler before that one. This ChannelHandlerContext 
-    will invoke the ChannelHandler that follows the one with which it’s associated
-        ```
-        ChannelHandlerContext ctx = ..;
-        ctx.write(Unpooled.copiedBuffer("Netty in Action", CharsetUtil.UTF_8));
-        ```
-        * write() sends the buffer to the next ChannelHandler
-* Advanced uses of ChannelHandler and ChannelHandlerContext
-    * you can acquire a reference to the enclosing Channel- Pipeline by calling the pipeline() method of a 
-    ChannelHandlerContext
-    * This enables runtime manipulation of the pipeline’s ChannelHandlers, which can be exploited to implement 
-    sophisticated designs
-        * For example, you could add a ChannelHandler to a pipeline to support a dynamic protocol change
-    * Other advanced uses can be supported by caching a reference to a Channel- HandlerContext for later use, which 
-    might take place outside any ChannelHandler methods and could even originate from a different thread
-    * Because a ChannelHandler can belong to more than one ChannelPipeline, it can be bound to multiple 
-    ChannelHandlerContext instances
-    * ChannelHandler intended for this use must be annotated with @Sharable; otherwise, attempting to add it to more 
-    than one ChannelPipeline will trigger an exception
-    * A common reason for installing a single ChannelHandler in multiple ChannelPipelines is to gather statistics across
-      multiple Channels
-      
-## callback
+    * ChannelHandlerContext has connection from its ChannelHandler to the next ChannelHandler
+    
+## future
 * callback is simply a method, a reference to which has been provided to another method
     * This enables the latter to call the former at an appropriate time
     * represents one of the most common ways to notify an interested party that an operation has completed
@@ -369,61 +218,18 @@ when an operation has completed (whether or not successfully)
     an implementation of interface ChannelHandler
     * an example - hooks from ChannelInboundHandlerAdapter: channelActive(ChannelHandlerContext) is called when a new 
     connection is established
-    
-## future
-* Future
-    * provides another way to notify an application when an operation has completed
-    * acts as a placeholder for the result of an asynchronous operation
-    * it will complete at some point in the future and provide access to the result
-    * JDK ships with interface java.util.concurrent.Future, but the provided implementations allow you only to check 
-    manually whether the operation has completed or to block until it does
-    * Netty provides its own implementation, ChannelFuture, for use when an asynchronous operation is executed
-    * ChannelFuture provides additional methods that allow us to register one or more ChannelFutureListener instances
-    * listener’s callback method, operationComplete(), is called when the operation has completed
+* Each of Netty’s outbound I/O operations returns a ChannelFuture
+* ChannelFuture provides additional methods that allow us to register one or more ChannelFutureListener instances
+    * ChannelFutureListener is a more elaborate version of a callback
+    * listener’s callback method, `operationComplete()`, is called when the operation has completed
         * listener can then determine whether the operation completed successfully or with an error
         * If the latter, we can retrieve the Throwable that was produced
-        ```
-        future.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future) {
-                if (future.isSuccess()){
-                    ByteBuf buffer = Unpooled.copiedBuffer(
-                    "Hello",Charset.defaultCharset());
-                    ChannelFuture wf = future.channel()
-                    .writeAndFlush(buffer);
-                    ....
-                } else {
-                    Throwable cause = future.cause();
-                    cause.printStackTrace();
-                }
-            }
-        });
-        ```
-    * the notification mechanism provided by the ChannelFutureListener eliminates the need for manually checking
-    operation completion
-    * Each of Netty’s outbound I/O operations returns a ChannelFuture
-    * ChannelFutureListener is a more elaborate version of a callback, you’re correct
-    * callbacks and Futures are complementary mechanisms; in combination they make up one of the key building blocks 
-    of Netty itself
+* provides another way to notify an application when an operation has completed
+* acts as a placeholder for the result of an asynchronous operation
+* it will complete at some point in the future and provide access to the result
+* JDK ships with interface java.util.concurrent.Future, but the provided implementations allow you only to check 
+manually whether the operation has completed or to block until it does
 
-## Events and handlers
-* Events and handlers
-    * Netty uses distinct events to notify us about changes of state or the status of operations
-    * This allows us to trigger the appropriate action based on the event that has occurred. Such actions might include
-        * Logging
-        * Data transformation
-        * Flow-control
-        * Application logic
-    * Events that may be triggered by inbound data or an associated change of state include
-        * Active or inactive connections
-        * Data reads
-        * User events
-        * Error events
-    * An outbound event is the result of an operation that will trigger an action in the future, which may be
-        * Opening or closing a connection to a remote peer
-        * Writing or flushing data to a socket
-    * you can think of each ChannelHandler instance as a kind of callback to be executed in response to a specific event
-      
 ### event loop
 * EventLoop defines Netty’s core abstraction for handling events that occur during the lifetime of a connection 
 An EventLoopGroup contains one or more EventLoops.
