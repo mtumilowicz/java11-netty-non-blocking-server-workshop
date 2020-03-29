@@ -87,6 +87,23 @@ when an operation has completed (whether or not successfully)
         * ChannelInboundHandlerAdapter
         * ChannelOutboundHandlerAdapter
         * ChannelDuplexHandlerAdapter
+        
+* All Netty servers require the following:
+    * At least one ChannelHandler—This component implements the server’s processing of data received from the 
+    client—its business logic
+    * Bootstrapping—This is the startup code that configures the server. At a minimum, it binds the server to the port 
+    on which it will listen for connection requests
+* Every Channel has an associated ChannelPipeline, which holds a chain of ChannelHandler instances
+    * By default, a handler will forward the invocation of a handler method to the next one in the chain
+    * Therefore, if exceptionCaught()is not implemented somewhere along the chain, exceptions received will travel to 
+    the end of the ChannelPipeline and will be logged
+    * For this reason, your application should supply at least one ChannelHandler that implements exceptionCaught()
+* ChanelHandlers
+    * ChannelHandlers are invoked for different types of events.
+    * Applications implement or extend ChannelHandlers to hook into the event lifecycle and provide custom 
+    application logic
+    * Architecturally, ChannelHandlers help to keep your business logic decoupled from networking code. This 
+    simplifies development as the code evolves in response to changing requirements
 ### The ChannelHandler family
 * The Channel lifecycle (Channel lifecycle states)
     * ChannelRegistered - The Channel is registered to an EventLoop.
@@ -408,44 +425,23 @@ when an operation has completed (whether or not successfully)
     * you can think of each ChannelHandler instance as a kind of callback to be executed in response to a specific event
       
 ### event loop
-* Event loop
-    * Under the covers, an EventLoop is assigned to each Channel to handle all of the events, including
-      * Registration of interesting events
-      * Dispatching events to ChannelHandlers
-      * Scheduling further actions
-    * EventLoop itself is driven by only one thread that handles all of the I/O events for one Channel and does not 
-    change during the lifetime of the EventLoop
-    * This simple and powerful design eliminates any concern you might have about synchronization in your 
-    ChannelHandlers, so you can focus on providing the right logic to be executed when there is interesting data to 
-    process
-* All Netty servers require the following:
-    * At least one ChannelHandler—This component implements the server’s processing of data received from the 
-    client—its business logic
-    * Bootstrapping—This is the startup code that configures the server. At a minimum, it binds the server to the port 
-    on which it will listen for connection requests
-* Every Channel has an associated ChannelPipeline, which holds a chain of ChannelHandler instances
-    * By default, a handler will forward the invocation of a handler method to the next one in the chain
-    * Therefore, if exceptionCaught()is not implemented somewhere along the chain, exceptions received will travel to 
-    the end of the ChannelPipeline and will be logged
-    * For this reason, your application should supply at least one ChannelHandler that implements exceptionCaught()
-* ChanelHandlers
-    * ChannelHandlers are invoked for different types of events.
-    * Applications implement or extend ChannelHandlers to hook into the event lifecycle and provide custom 
-    application logic
-    * Architecturally, ChannelHandlers help to keep your business logic decoupled from networking code. This 
-    simplifies development as the code evolves in response to changing requirements
 * EventLoop defines Netty’s core abstraction for handling events that occur during the lifetime of a connection 
 An EventLoopGroup contains one or more EventLoops.
     * An EventLoop is bound to a single Thread for its lifetime.
     * All I/O events processed by an EventLoop are handled on its dedicated Thread.
     * A Channel is registered for its lifetime with a single EventLoop.
     * A single EventLoop may be assigned to one or more Channels.
-* Note that this design, in which the I/O for a given Channel is executed by the same Thread, virtually eliminates 
-the need for synchronization
-* threading model specifies key aspects of thread management in the context of an OS, programming language, framework, 
-or application
-    * How and when threads are created obviously has a significant impact on the execution of application code, so 
-    developers need to understand the trade-offs associated with different models
+* under the covers, an EventLoop is assigned to each Channel to handle all of the events, including
+  * registration of interesting events
+  * dispatching events to ChannelHandlers
+  * scheduling further actions
+* EventLoop itself is driven by only one thread that handles all of the I/O events for one Channel and does not 
+change during the lifetime of the EventLoop
+    * This simple and powerful design eliminates any concern you might have about synchronization in your 
+    ChannelHandlers, so you can focus on providing the right logic to be executed when there is interesting data to 
+    process
+    * Note that this design, in which the I/O for a given Channel is executed by the same Thread, virtually eliminates 
+    the need for synchronization
 * Interface EventLoop
     * basic idea of an event loop
         ```
@@ -461,49 +457,9 @@ or application
     * Depending on the configuration and the available cores, multiple EventLoops may be created in order to optimize 
     resource use, and a single EventLoop may be assigned to service multiple Channels
     * Netty’s EventLoop, while it extends ScheduledExecutorService, defines only one method, parent()
-      * is intended to return a reference to the EventLoopGroup to which the current EventLoop implementation instance 
-      belongs
-    * Events and tasks are executed in FIFO (firstinfirst-out) order
-* I/O and event handling in Netty 4
-    * events triggered by I/O operations flow through a ChannelPipeline that has one or more installed ChannelHandlers
-    * The method calls that propagate these events can then be intercepted by the ChannelHandlers and the events 
-    processed as required
-    * Therefore, in Netty 4 all I/O operations and events are handled by the Thread that has been assigned to the 
-    EventLoop
-* Task scheduling
-    * A common use case is to send a heartbeat message to a remote peer to check whether the connection is still alive
-        * If there is no response, you know you can close the channel
-    * The ScheduledExecutorService implementation has limitations, such as the fact that extra threads are created as 
-    part of pool management
-    * Scheduling a task with EventLoop
-        ```
-        Channel ch = ...
-        ScheduledFuture<?> future = ch.eventLoop().schedule(
-            new Runnable() {
-                @Override
-                public void run() {
-                    System.out.println("60 seconds later");
-                }
-        }, 60, TimeUnit.SECONDS); // delay
-        ```
-    * Scheduling a recurring task with EventLoop
-        ```
-        Channel ch = ...
-        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(
-            new Runnable() {
-                @Override
-                public void run() {
-                    System.out.println("Run every 60 seconds");
-                }
-        }, 60, 60, TimeUnit.Seconds);
-        ```
-    * Canceling a task using ScheduledFuture
-        ```
-        ScheduledFuture<?> future = ch.eventLoop().scheduleAtFixedRate(...);
-        // Some other code that runs...
-        boolean mayInterruptIfRunning = false;
-        future.cancel(mayInterruptIfRunning);
-        ```
+        * is intended to return a reference to the EventLoopGroup to which the current EventLoop implementation instance 
+        belongs
+    * Events and tasks are executed in FIFO order
 * Thread management
     * The superior performance of Netty’s threading model hinges on determining the identity of the currently 
     executing Thread
