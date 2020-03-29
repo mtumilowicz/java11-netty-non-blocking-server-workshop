@@ -701,35 +701,12 @@ as simple as its definition, especially in network applications
       ```
 
 ### Exception handling
-* Handling inbound exceptions
-    * If an exception is thrown during processing of an inbound event, it will start to flow through the 
-    ChannelPipeline starting at the point in the ChannelInboundHandler where it was triggered
-    * To handle such an inbound exception, you need to override the following method in your ChannelInboundHandler 
-    implementation
-        ```
-        public void exceptionCaught(
-        ChannelHandlerContext ctx, Throwable cause) throws Exception
-        ```
-        example
-        ```
-        public class InboundExceptionHandler extends ChannelInboundHandlerAdapter {
-          @Override
-          public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-              cause.printStackTrace();
-              ctx.close();
-          }
-        }
-        ```
-    * ChannelInboundHandler that implements the preceding logic is usually placed last in the ChannelPipeline 
-    (exception will continue to flow in the inbound direction)
-    * If you don’t implement any handling for inbound exceptions (or don’t consume the exception), Netty will log the 
-    fact that the exception wasn’t handled
-    * summarize
-      * The default implementation of ChannelHandler.exceptionCaught() forwards the current exception to the next 
-      handler in the pipeline.
-      * If an exception reaches the end of the pipeline, it’s logged as unhandled.
-      * To define custom handling, you override exceptionCaught(). It’s then your decision whether to propagate the 
-      exception beyond that point.
+* if an exception is thrown during processing of an inbound event, it will start to flow through the ChannelPipeline 
+starting at the point in the ChannelInboundHandler where it was triggered
+* `ChannelInboundHandler.exceptionCaught(ChannelHandlerContext ctx, Throwable cause)`
+    * default implementation forwards the current exception to the next handler in the pipeline
+    * if an exception reaches the end of the pipeline, it’s logged as unhandled.
+
 * Handling outbound exceptions
     * The options for handling normal completion and exceptions in outbound operations are based on the following 
     notification mechanisms:
@@ -776,5 +753,3 @@ as simple as its definition, especially in network applications
           ```
         * By calling setSuccess() and setFailure() on ChannelPromise, you can make the status of an operation known 
         as soon as the ChannelHandler method returns to the caller
-    * What happens if your ChannelOutboundHandler itself throws an exception? In this case, Netty itself will notify 
-    any listeners that have been registered with the corresponding ChannelPromise
