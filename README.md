@@ -5,6 +5,8 @@
     * https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html
 
 ## preface
+
+## introduction
 * consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
 message even while sending one
 * asynchronous events can also have an ordered relationship
@@ -29,11 +31,11 @@ message even while sending one
 ## ChannelHandler
 * supports almost any kind of action, example: converting data, handling exceptions etc.
     * help to separate business logic from networking code
-    * generic container for any code that processes events
+    * is a generic container for any code that processes events
 * is a kind of callback to be executed in response to a specific event
-    * implemented to hook into the event lifecycle and provide custom logic
 * when added to a `ChannelPipeline` - gets `ChannelHandlerContext` (binding between handler and the pipeline)
     * `ChannelHandlerContext` enables a `ChannelHandler` to interact with other handlers
+    * `ChannelHandler` passes event to next `ChannelHandler` in pipeline using assigned `ChannelHandlerContext`
 * lifecycle
     * each method accepts a `ChannelHandlerContext` argument
     * `handlerAdded` - called when added to a `ChannelPipeline`
@@ -45,6 +47,12 @@ message even while sending one
     * `ChannelOutboundHandler`
         * implementation: `ChannelOutboundHandlerAdapter`
 * if the implementation is annotated as `@Sharable,` it means handler can be added to multiple `ChannelPipelines`
+
+## ChannelHandlerContext
+* is an association between a `ChannelHandler` and a `ChannelPipeline`
+* is created whenever a `ChannelHandler` is added to a pipeline
+* manages the interaction of its associated `ChannelHandler` with others in the same pipeline
+* has connection from its `ChannelHandler` to the next `ChannelHandler`
 
 ## ChannelPipeline
 ```
@@ -85,7 +93,7 @@ message even while sending one
 |  Netty Internal I/O Threads (Transport Implementation)            |
 +-------------------------------------------------------------------+
 ```
-* beginning: the inbound entry to the ChannelPipeline (the left side)
+* beginning: the inbound entry (the left side)
 * the end: outbound entry (the right side)
 * `ChannelPipeline` is primarily a series of `ChannelHandlers` with API for propagating the inbound and outbound 
 events along the chain
@@ -106,15 +114,6 @@ events along the chain
 * two ways of sending messages:
     * direct write to the `Channel` - message starts from the tail
     * write to a `ChannelHandlerContext` (associated with a `ChannelHandler`) - message starts from the next handler
-
-## ChannelHandlerContext
-* is an association between a `ChannelHandler` and a `ChannelPipeline`
-* is created whenever a `ChannelHandler` is added to a `ChannelPipeline`
-* manages the interaction of its associated ChannelHandler with others in the same ChannelPipeline
-* methods called on a ChannelHandlerContext will start at the current associated ChannelHandler and 
-propagate only to the next ChannelHandler in the pipeline that is capable of handling the event
-* ChannelHandler passes event to next ChannelHandler in ChannelPipeline using assigned ChannelHandlerContext
-* ChannelHandlerContext has connection from its ChannelHandler to the next ChannelHandler
   
 ## Resource management
 * Netty’s alternative to `ByteBuffer` is `ByteBuf`
@@ -128,92 +127,65 @@ propagate only to the next ChannelHandler in the pipeline that is capable of han
     invocation of a native I/O operation
 * two `ByteBufAllocator` implementations
     * `PooledByteBufAllocator`
-        * pools ByteBuf instances to improve performance and minimize memory fragmentation
+        * pools `ByteBuf` instances to improve performance and minimize memory fragmentation
         * uses memory allocation `jemalloc`
     * `UnpooledByteBufAllocator`
-        * doesn’t pool ByteBuf instances and returns a new instance every time it’s called
-* whenever you act on data by calling `ChannelInboundHandler.channelRead()` or `ChannelOutboundHandler.write()`, you 
-need to ensure that there are no resource leaks
+        * doesn’t pool `ByteBuf` instances and returns a new instance every time it’s called
 * Netty uses reference counting to handle pooled ByteBufs
+* whenever calling `ChannelInboundHandler.channelRead()` or `ChannelOutboundHandler.write()`, you need to ensure that 
+there are no resource leaks
 * `SimpleChannelInboundHandler` (`ChannelInboundHandler` implementation) will automatically release a message once 
 it’s consumed by `channelRead0()`
     * `channelRead()` has in finally block: `ReferenceCountUtil.release()`
     * if the message reaches the actual transport layer, it will be released automatically when it’s written or 
-    the Channel is closed
+    the `Channel` is closed
     
 ## future
-* callback is simply a method, a reference to which has been provided to another method
-    * This enables the latter to call the former at an appropriate time
+* JDK's `java.util.concurrent.Future` provided implementations allow you only to check manually whether the operation 
+has completed or to block until it does
+* callback is simply a method that has been provided to another method
+    * this enables the latter to call the former at an appropriate time
     * represents one of the most common ways to notify an interested party that an operation has completed
-    * Netty uses callbacks internally when handling events; when a callback is triggered the event can be handled by 
-    an implementation of interface ChannelHandler
-    * an example - hooks from ChannelInboundHandlerAdapter: channelActive(ChannelHandlerContext) is called when a new 
-    connection is established
-* Each of Netty’s outbound I/O operations returns a ChannelFuture
-* ChannelFuture provides additional methods that allow us to register one or more ChannelFutureListener instances
-    * ChannelFutureListener is a more elaborate version of a callback
+    * Netty uses callbacks internally when handling events
+        * example: `ChannelInboundHandlerAdapter.channelActive(ChannelHandlerContext)` is called when 
+        a new connection is established
+* each of Netty’s outbound I/O operations returns a `ChannelFuture`
+    * acts as a placeholder for the result of an asynchronous operation
+    * it will complete at some point in the future and provide access to the result
+* `ChannelFuture` provides additional methods that allow us to register one or more `ChannelFutureListener` instances
+    * `ChannelFutureListener` is a more elaborate version of a callback
     * listener’s callback method, `operationComplete()`, is called when the operation has completed
         * listener can then determine whether the operation completed successfully or with an error
-        * If the latter, we can retrieve the Throwable that was produced
-* provides another way to notify an application when an operation has completed
-* acts as a placeholder for the result of an asynchronous operation
-* it will complete at some point in the future and provide access to the result
-* JDK ships with interface java.util.concurrent.Future, but the provided implementations allow you only to check 
-manually whether the operation has completed or to block until it does
+        * if the latter, we can retrieve the Throwable that was produced
 
-## event loop
-* EventLoop defines Netty’s core abstraction for handling events that occur during the lifetime of a connection 
-An EventLoopGroup contains one or more EventLoops.
-    * An EventLoop is bound to a single Thread for its lifetime.
-    * All I/O events processed by an EventLoop are handled on its dedicated Thread.
-    * A Channel is registered for its lifetime with a single EventLoop.
-    * A single EventLoop may be assigned to one or more Channels.
-* under the covers, an EventLoop is assigned to each Channel to handle all of the events, including
-  * registration of interesting events
-  * dispatching events to ChannelHandlers
-  * scheduling further actions
-* EventLoop itself is driven by only one thread that handles all of the I/O events for one Channel and does not 
-change during the lifetime of the EventLoop
-    * This simple and powerful design eliminates any concern you might have about synchronization in your 
-    ChannelHandlers, so you can focus on providing the right logic to be executed when there is interesting data to 
-    process
-    * Note that this design, in which the I/O for a given Channel is executed by the same Thread, virtually eliminates 
-    the need for synchronization
-* Interface EventLoop
-    * basic idea of an event loop
-        ```
-        while (!terminated) {
-            List<Runnable> readyEvents = blockUntilEventsReady();
-            for (Runnable ev: readyEvents) {
-                ev.run();
-            }
+## EventLoop
+* basic idea of an event loop
+    ```
+    while (!terminated) {
+        List<Runnable> readyEvents = blockUntilEventsReady();
+        for (Runnable ev: readyEvents) {
+            ev.run();
         }
-        ```
-    * EventLoop is powered by exactly one Thread that never changes, and tasks (Runnable or Callable) can be submitted 
-    directly to EventLoop implementations for immediate or scheduled execution
-    * Depending on the configuration and the available cores, multiple EventLoops may be created in order to optimize 
-    resource use, and a single EventLoop may be assigned to service multiple Channels
-    * Netty’s EventLoop, while it extends ScheduledExecutorService, defines only one method, parent()
-        * is intended to return a reference to the EventLoopGroup to which the current EventLoop implementation instance 
-        belongs
-    * Events and tasks are executed in FIFO order
-* Thread management
-    * The superior performance of Netty’s threading model hinges on determining the identity of the currently 
-    executing Thread
-        * that is, whether or not it is the one assigned to the current Channel and its EventLoop (EventLoop is 
-        responsible for handling all events for a Channel during its lifetime)
-    * If the calling Thread is that of the EventLoop, the code block in question is executed
-        * Otherwise, the EventLoop schedules a task for later execution and puts it in an internal queue
-        * When the EventLoop next processes its events, it will execute those in the queue
-    * This explains how any Thread can interact directly with the Channel without requiring synchronization in the 
-    ChannelHandlers
-    * Note that each EventLoop has its own task queue, independent of that of any other EventLoop
-    * Never put a long-running task in the execution queue, because it will block any other task from executing on the 
-    same thread.
-        * If you must make blocking calls or execute long-running tasks, we advise the use of a dedicated EventExecutor.
-* EventLoopGroup is responsible for allocating an EventLoop to each newly created Channel
-* Each EventLoop handles all events and tasks for all the channels assigned to it. Each EventLoop is 
-associated with one Thread.
+    }
+    ```
+* Netty’s core abstraction for handling events that occur during the lifetime of a connection
+* extends `ScheduledExecutorService`
+* has its own independent task queue
+* is bound to a single `Thread` for its lifetime
+    * all I/O events processed are handled on its dedicated `Thread`
+    * eliminates any concern you might have about synchronization in your `ChannelHandlers`
+* `Channel` is registered for its lifetime with a single `EventLoop`
+    * a single `EventLoop` may be assigned to one or more `Channels`
+        * `ThreadLocal` will be the same for all associated `Channels`
+* any long-running task put in the execution queue will block any other task from executing on the same thread
+* execution logic
+    1. task to be executed in the `EventLoop`: `Channel.eventLoop().execute(Task)`
+    1. calling thread is the one assigned to the `EventLoop`?
+        * yes: you are in the appropriate `EventLoop` and the task can be executed directly
+        * no: you are not in the appropriate `EventLoop` - queue the task in the appropriate loop
+            * task will be executed when the EventLoop processes its events again
+* an `EventLoopGroup` contains one or more `EventLoops`
+    * is responsible for allocating an `EventLoop` to each newly created `Channel`
 
 ## bootstrapping
 * NIO transport refers to a transport that’s mostly  identical to TCP except for server-side performance enhancements 
