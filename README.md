@@ -26,7 +26,7 @@ message even while sending one
     * an open connection to an entity (hardware device, file, network socket)  that is capable of performing I/O 
     operations (reading or writing)
     
-### ChannelHandler
+## ChannelHandler
 * supports almost any kind of action, example: converting data, handling exceptions etc.
     * help to separate business logic from networking code
     * generic container for any code that processes events
@@ -45,33 +45,8 @@ message even while sending one
     * `ChannelOutboundHandler`
         * implementation: `ChannelOutboundHandlerAdapter`
 * if the implementation is annotated as `@Sharable,` it means handler can be added to multiple `ChannelPipelines`
-        
-### Resource management
-* Netty’s alternative to `ByteBuffer` is `ByteBuf`
-* heap buffers
-    * most frequently used `ByteBuf` pattern
-    * stores the data in the heap space
-* direct buffers
-    * `ByteBuf` pattern
-    * allows a JVM implementation to allocate memory via native calls
-    * aims to avoid copying the buffer’s contents to (or from) an intermediate buffer before (or after) each 
-    invocation of a native I/O operation
-* two `ByteBufAllocator` implementations
-    * `PooledByteBufAllocator`
-        * pools ByteBuf instances to improve performance and minimize memory fragmentation
-        * uses memory allocation `jemalloc`
-    * `UnpooledByteBufAllocator`
-        * doesn’t pool ByteBuf instances and returns a new instance every time it’s called
-* whenever you act on data by calling `ChannelInboundHandler.channelRead()` or `ChannelOutboundHandler.write()`, you 
-need to ensure that there are no resource leaks
-* Netty uses reference counting to handle pooled ByteBufs
-* `SimpleChannelInboundHandler` (`ChannelInboundHandler` implementation) will automatically release a message once 
-it’s consumed by `channelRead0()`
-    * `channelRead()` has in finally block: `ReferenceCountUtil.release()`
-    * if the message reaches the actual transport layer, it will be released automatically when it’s written or 
-    the Channel is closed
-    
-### ChannelPipeline
+
+## ChannelPipeline
 ```
                                                I/O Request
                                           via Channel or
@@ -129,25 +104,42 @@ events along the chain
     direction of movement
         * if not skips that `ChannelHandler` and proceeds to the next one
 * two ways of sending messages:
-    * direct write to the Channel - message starts from the tail
+    * direct write to the `Channel` - message starts from the tail
     * write to a `ChannelHandlerContext` (associated with a `ChannelHandler`) - message starts from the next handler
 
-### ChannelHandlerContext
-* ChannelHandlerContext represents an association between a ChannelHandler and a ChannelPipeline and is created 
-whenever a ChannelHandler is added to a ChannelPipeline
-* The primary function of a ChannelHandlerContext is to manage the interaction of its associated ChannelHandler 
-with others in the same ChannelPipeline
-* ChannelHandlerContext has numerous methods, some of which are also present on Channel and on ChannelPipeline 
-itself, but there is an important difference
-    * If you invoke these methods on a Channel or ChannelPipeline instance, they propagate through the entire 
-    pipeline
-    * The same methods called on a ChannelHandlerContext will start at the current associated ChannelHandler and 
-    propagate only to the next ChannelHandler in the pipeline that is capable of handling the event
-    * The ChannelHandlerContext associated with a ChannelHandler never changes, so it’s safe to cache a reference 
-    to it.
-* Using ChannelHandlerContext
-    * ChannelHandler passes event to next ChannelHandler in ChannelPipeline using assigned ChannelHandlerContext
-    * ChannelHandlerContext has connection from its ChannelHandler to the next ChannelHandler
+## ChannelHandlerContext
+* is an association between a `ChannelHandler` and a `ChannelPipeline`
+* is created whenever a `ChannelHandler` is added to a `ChannelPipeline`
+* manages the interaction of its associated ChannelHandler with others in the same ChannelPipeline
+* methods called on a ChannelHandlerContext will start at the current associated ChannelHandler and 
+propagate only to the next ChannelHandler in the pipeline that is capable of handling the event
+* ChannelHandler passes event to next ChannelHandler in ChannelPipeline using assigned ChannelHandlerContext
+* ChannelHandlerContext has connection from its ChannelHandler to the next ChannelHandler
+  
+## Resource management
+* Netty’s alternative to `ByteBuffer` is `ByteBuf`
+* heap buffers
+    * most frequently used `ByteBuf` pattern
+    * stores the data in the heap space
+* direct buffers
+    * `ByteBuf` pattern
+    * allows a JVM implementation to allocate memory via native calls
+    * aims to avoid copying the buffer’s contents to (or from) an intermediate buffer before (or after) each 
+    invocation of a native I/O operation
+* two `ByteBufAllocator` implementations
+    * `PooledByteBufAllocator`
+        * pools ByteBuf instances to improve performance and minimize memory fragmentation
+        * uses memory allocation `jemalloc`
+    * `UnpooledByteBufAllocator`
+        * doesn’t pool ByteBuf instances and returns a new instance every time it’s called
+* whenever you act on data by calling `ChannelInboundHandler.channelRead()` or `ChannelOutboundHandler.write()`, you 
+need to ensure that there are no resource leaks
+* Netty uses reference counting to handle pooled ByteBufs
+* `SimpleChannelInboundHandler` (`ChannelInboundHandler` implementation) will automatically release a message once 
+it’s consumed by `channelRead0()`
+    * `channelRead()` has in finally block: `ReferenceCountUtil.release()`
+    * if the message reaches the actual transport layer, it will be released automatically when it’s written or 
+    the Channel is closed
     
 ## future
 * callback is simply a method, a reference to which has been provided to another method
@@ -169,7 +161,7 @@ itself, but there is an important difference
 * JDK ships with interface java.util.concurrent.Future, but the provided implementations allow you only to check 
 manually whether the operation has completed or to block until it does
 
-### event loop
+## event loop
 * EventLoop defines Netty’s core abstraction for handling events that occur during the lifetime of a connection 
 An EventLoopGroup contains one or more EventLoops.
     * An EventLoop is bound to a single Thread for its lifetime.
@@ -289,7 +281,7 @@ another EventLoop for the new client Channel
             * Note that shutdownGracefully() is also an asynchronous operation, so you’ll need to either block until it 
             completes or register a listener with the returned Future to be notified of completion
 
-### Exception handling
+## Exception handling
 * if an exception is thrown during processing of an inbound event, it will start to flow through the ChannelPipeline 
 starting at the point in the ChannelInboundHandler where it was triggered
 * `ChannelInboundHandler.exceptionCaught(ChannelHandlerContext ctx, Throwable cause)`
