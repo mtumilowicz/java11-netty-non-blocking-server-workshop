@@ -193,43 +193,20 @@ release all active threads
         completion
         
 ## bootstrapping
-* required in server bootstrapping:
-    * `ServerBootstrap` - bootstraps and binds the server
-    * `NioEventLoopGroup` - handles event processing (accepts new connections and reading/writing data)
-    * `NioServerSocketChannel` - channel implementation
-* when a new connection is accepted, a new child Channel will be created, and the `ChannelInitializer` will add an 
-instance of your `EchoServerHandler` to the Channel’s `ChannelPipeline`
-* bootstrapping a client is similar to bootstrapping a server - instead of binding to a listening port the client 
-connects to a remote address
-* a server devotes a parent channel to accepting connections from clients and creating child channels for 
-conversing with them
-    * a client will most likely require only a single, non-parent channel for all network interactions
-
-* Bootstrapping clients and connectionless protocols
-    * group(EventLoopGroup) Sets the EventLoopGroup that will handle all events for the Channel
-    * channel(Class<? extends C>) specifies the Channel implementation class (C extends Channel)
-    * handler(ChannelHandler) Sets the ChannelHandler that’s added to the
-      ChannelPipeline to receive event notification
-    * remoteAddress(SocketAddress) - Sets the remote address
-    * ChannelFuture connect() - Connects to the remote peer
-* Bootstrapping servers
-    * group Sets the EventLoopGroup to be used by the ServerBootstrap . This
-      EventLoopGroup serves the I/O of the ServerChannel and accepted
-      Channel s.
-    * channel Sets the class of the ServerChannel to be instantiated.
-    * localAddress Specifies the local address the ServerChannel should be bound to
-    * childHandler Sets the ChannelHandler that’s added to the ChannelPipeline of
-      accepted Channels
-    * The difference between handler() and childHandler() is that the former adds a handler that’s processed by the 
-    accepting ServerChannel, whereas childHandler() adds a handler that’s processed by an accepted Channel, which 
-    represents a socket bound to a remote peer
-    * bind Binds the ServerChannel and returns a ChannelFuture , which is notified
-      once the connection operation is complete (with the success or error result).
-    
-* ServerChannel implementations are responsible for creating child Channels, which represent accepted 
-connections
-    1. A ServerChannel is created when bind() is called
-    1. A new Channel is created by the ServerChannel when a connection is accepted
+* `ServerBootstrap`
+    * `ServerBootstrap group(EventLoopGroup)`
+    * `ServerBootstrap channel(Class<? extends ServerChannel>)` - `ServerChannel` to be instantiated
+        * parent channel - accepts connections from clients
+    * `ServerBootstrap localAddress(SocketAddress)` - local address the server should be bound to
+    * `ServerBootstrap childHandler(ChannelHandler childHandler)` - `ChannelHandler` added to the `ChannelPipeline`
+        * child channels - converses with clients
+    * `ChannelFuture bind()` - binds the `ServerChannel`
+* `Bootstrap`: clients
+    * `Bootstrap group(EventLoopGroup)`
+    * `Bootstrap channel(Class<? extends Channel>)`
+    * `Bootstrap handler(ChannelHandler)` handler to receive event notification
+    * `Bootstrap remoteAddress(SocketAddress)`
+    * `ChannelFuture connect()` - connects to the remote peer
     
 ## Exception handling
 * if an exception is thrown during processing of an inbound event, it will start to flow through the ChannelPipeline 
@@ -238,6 +215,6 @@ starting at the point in the ChannelInboundHandler where it was triggered
     * default implementation forwards the current exception to the next handler in the pipeline
     * if an exception reaches the end of the pipeline, it’s logged as unhandled.
 * by default, a handler will forward the invocation of a handler method to the next one in the chain
-* therefore, if exceptionCaught() is not implemented somewhere along the chain, exceptions received will travel to 
+* therefore, if `exceptionCaught()` is not implemented somewhere along the chain, exceptions received will travel to 
 the end of the ChannelPipeline and will be logged
 * For this reason, your application should supply at least one ChannelHandler that implements exceptionCaught()
