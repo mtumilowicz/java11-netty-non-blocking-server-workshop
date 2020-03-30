@@ -162,9 +162,9 @@ has completed or to block until it does
 * basic idea of an event loop
     ```
     while (!terminated) {
-        List<Runnable> readyEvents = blockUntilEventsReady();
-        for (Runnable ev: readyEvents) {
-            ev.run();
+        var readyEvents = blockUntilEventsReady();
+        for (var event: readyEvents) {
+            event.run();
         }
     }
     ```
@@ -186,15 +186,17 @@ has completed or to block until it does
             * task will be executed when the EventLoop processes its events again
 * an `EventLoopGroup` contains one or more `EventLoops`
     * is responsible for allocating an `EventLoop` to each newly created `Channel`
-
+* `EventLoopGroup` needs to be shutdown gracefully - it has to handle any pending events and tasks and subsequently 
+release all active threads
+    * `EventLoopGroup.shutdownGracefully()`
+        * an asynchronous operation - either block until it completes or register a listener to be notified of 
+        completion
+        
 ## bootstrapping
-* NIO transport refers to a transport that’s mostly  identical to TCP except for server-side performance enhancements 
-provided by the Java NIO implementation
-* The following steps are required in bootstrapping:
-    * create a ServerBootstrap instance to bootstrap and bind the server
-    * create and assign an NioEventLoopGroup instance to handle event processing, such as accepting new connections 
-    and reading/writing data
-    * create and assign an NioServerSocketChannel as a channel implementation to be used 
+* required in server bootstrapping:
+    * `ServerBootstrap` - bootstraps and binds the server
+    * `NioEventLoopGroup` - handles event processing (accepts new connections and reading/writing data)
+    * `NioServerSocketChannel` - channel implementation
 * when a new connection is accepted, a new child Channel will be created, and the `ChannelInitializer` will add an 
 instance of your `EchoServerHandler` to the Channel’s `ChannelPipeline`
 * bootstrapping a client is similar to bootstrapping a server - instead of binding to a listening port the client 
@@ -229,30 +231,6 @@ connections
     1. A ServerChannel is created when bind() is called
     1. A new Channel is created by the ServerChannel when a connection is accepted
     
-* Suppose your server is processing a client request that requires it to act as a client to a third system
-    * In such cases you’ll need to bootstrap a client Channel from a ServerChannel
-* You could create a new Bootstrap, but this is not the most efficient solution, as it would require you to define 
-another EventLoop for the new client Channel
-    * This would produce additional threads, necessitating context switching when exchanging data between the 
-    accepted Channel and the client Channel
-    * A better solution is to share the EventLoop of the accepted Channel by passing it to the group() method of the 
-    Bootstrap
-        * Because all Channels assigned to an EventLoop use the same thread, this avoids the extra thread creation 
-        and related context-switching mentioned previously
-* how can you do this if you can set only one ChannelHandler during the bootstrapping process?
-    * Netty supplies a special subclass of ChannelInboundHandlerAdapter
-    * provides an easy way to add multiple ChannelHandlers to a ChannelPipeline
-    * You simply provide your implementation of ChannelInitializer to the bootstrap, and once the Channel is 
-    registered with its EventLoop your version of initChannel() is called
-    * After the method returns, the ChannelInitializer instance removes itself from the ChannelPipeline
-* Shutdown
-    * you need to shut down the EventLoopGroup, which will handle any pending events and tasks and subsequently release 
-    all active threads
-        * This is a matter of calling EventLoopGroup.shutdownGracefully()
-            * This call will return a Future, which is notified when the shutdown completes
-            * Note that shutdownGracefully() is also an asynchronous operation, so you’ll need to either block until it 
-            completes or register a listener with the returned Future to be notified of completion
-
 ## Exception handling
 * if an exception is thrown during processing of an inbound event, it will start to flow through the ChannelPipeline 
 starting at the point in the ChannelInboundHandler where it was triggered
