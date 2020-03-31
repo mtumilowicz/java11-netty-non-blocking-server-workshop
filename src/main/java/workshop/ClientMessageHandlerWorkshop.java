@@ -17,8 +17,8 @@ class ClientMessageHandlerWorkshop extends SimpleChannelInboundHandler<ByteBuf> 
     }
 
     @Override
-    public void channelRead0(ChannelHandlerContext ctx, ByteBuf in) {
-        // print to console: Client received: incoming message, hint:System.out.println, in.toString, CharsetUtil.UTF_8
+    public void channelRead0(ChannelHandlerContext ctx, ByteBuf message) {
+        // print to console: Client received: incoming message, hint:System.out.println, message.toString, CharsetUtil.UTF_8
         // close connection, hint: ctx.close()
     }
 
