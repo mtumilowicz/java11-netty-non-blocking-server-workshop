@@ -12,31 +12,34 @@ import java.net.InetSocketAddress;
 
 class ClientWorkshop {
 
-    private final InetSocketAddress socketAddress = new InetSocketAddress("localhost", 8080);
+    // set InetSocketAddress, hint: new InetSocketAddress(host, port)
+    private final InetSocketAddress socketAddress = null;
 
     public static void main(String[] args) throws Exception {
         new ClientWorkshop().start();
     }
 
     void start() throws Exception {
-        EventLoopGroup group = new NioEventLoopGroup();
+        // create EventLoopGroup, hint: NioEventLoopGroup
         try {
-            Bootstrap b = new Bootstrap(); // Creates a Bootstrap to create and connect new client channels
-            b.group(group) // set EventLoopGroup that provides EventLoops for processing Channel events
-                    .channel(NioSocketChannel.class) // channel implementation
-                    .remoteAddress(socketAddress)
-                    .handler(new ChannelHandler());
-            ChannelFuture f = b.connect().sync();
-            f.channel().closeFuture().sync();
+            // create bootstrap to create and connect new client channel, hint: new Bootstrap()
+            // set EventLoopGroup that provides EventLoops for processing Channel events, hint: bootstrap.group()
+            // set channel implementation, hint: NioSocketChannel
+            // set remote address, hint: remoteAddress
+            // set handler, hint: ChannelHandler
+
+            // connect synchronously, hint: bootstrap.connect(), sync()
+            // wait synchronously for closing: hint: connection.channel(), closeFuture(), sync()
         } finally {
-            group.shutdownGracefully().sync();
+            // close the group synchronously, hint: group.shutdownGracefully(), sync()
         }
     }
 
     private static class ChannelHandler extends ChannelInitializer<SocketChannel> {
         @Override
-        public void initChannel(SocketChannel ch) { // initialize each new Channel with an EchoServerHandler instance
-            ch.pipeline().addLast(new ClientMessageHandlerWorkshop());
+        public void initChannel(SocketChannel channel) {
+            // initialize each new Channel with an handler instance
+            // hint: channel.pipeline(), addLast, ClientMessageHandlerWorkshop
         }
     }
 }
