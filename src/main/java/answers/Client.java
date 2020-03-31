@@ -35,8 +35,8 @@ class Client {
 
     private static class ChannelHandler extends ChannelInitializer<SocketChannel> {
         @Override
-        public void initChannel(SocketChannel ch) { // initialize each new Channel with an EchoServerHandler instance
-            ch.pipeline().addLast(new ClientMessageHandler());
+        public void initChannel(SocketChannel channel) { // initialize each new Channel with an EchoServerHandler instance
+            channel.pipeline().addLast(new ClientMessageHandler());
         }
     }
 }
