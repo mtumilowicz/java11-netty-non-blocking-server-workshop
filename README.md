@@ -5,6 +5,11 @@
     * https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html
 
 ## preface
+* goals of this workshop:
+    * introduction to non-blocking server implementation using Netty
+    * understand internals of Netty: event loop, bootstrapping, callbacks
+    * compare with: https://github.com/mtumilowicz/java12-nio-non-blocking-selector-server-workshop
+* workshops with hints: `workshop` package, answers: `answers`
 
 ## introduction
 * consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
