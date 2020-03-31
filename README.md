@@ -14,16 +14,11 @@
 * workshops with hints: `workshop` package, answers: `answers`
 
 ## introduction
-* consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
-message even while sending one
 * asynchronous events can also have an ordered relationship
     * you generally get an answer to a question only after you have asked it, and you may be able to do something 
     else while you are waiting for it
-* Netty’s core components
-    * Channels
-    * Callbacks
-    * Futures
-    * Events and handlers
+    * consider email: you may or may not get a response to a message you have sent, or you may receive an unexpected 
+    message even while sending one
 
 ## channel
 * lifecycle
