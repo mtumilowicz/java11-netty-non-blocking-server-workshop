@@ -31,7 +31,7 @@ class ClientWorkshop {
             // connect synchronously, hint: bootstrap.connect(), sync()
             // wait synchronously for closing: hint: connection.channel(), closeFuture(), sync()
         } finally {
-            // close the group synchronously, hint: group.shutdownGracefully(), sync()
+            // close the event group synchronously, hint: group.shutdownGracefully(), sync()
         }
     }
 
