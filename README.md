@@ -10,6 +10,7 @@
     * understand internals of Netty: event loop, bootstrapping, callbacks
     * compare with: https://github.com/mtumilowicz/java12-nio-non-blocking-selector-server-workshop
     * introduction to KiTTY
+    * write simple echo server with exemplary client
 * workshops with hints: `workshop` package, answers: `answers`
 
 ## introduction
