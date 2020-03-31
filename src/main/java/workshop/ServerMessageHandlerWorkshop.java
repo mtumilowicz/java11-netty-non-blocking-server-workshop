@@ -12,14 +12,14 @@ class ServerMessageHandlerWorkshop extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ByteBuf in = (ByteBuf) msg;
-        System.out.println("Server received: " + in.toString(CharsetUtil.UTF_8));
-        ctx.writeAndFlush(in);
+        // cast message to ByteBuf
+        // print to console: Server received: incoming message, hint:System.out.println, toString, CharsetUtil.UTF_8
+        // echo that message, hint: writeAndFlush
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
-        ctx.close();
+        // print stacktrace, hint: cause.printStackTrace()
+        // close connection, hint: ctx.close()
     }
 }
