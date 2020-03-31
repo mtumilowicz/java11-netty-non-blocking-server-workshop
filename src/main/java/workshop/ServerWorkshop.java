@@ -12,32 +12,34 @@ import java.net.InetSocketAddress;
 
 class ServerWorkshop {
 
-    private InetSocketAddress socketAddress = new InetSocketAddress(8080);
+    // set InetSocketAddress, hint: new InetSocketAddress(host, port)
+    private InetSocketAddress socketAddress = null;
 
     public static void main(String[] args) throws Exception {
         new ServerWorkshop().start();
     }
 
     void start() throws Exception {
-        EventLoopGroup group = new NioEventLoopGroup();
+        // create EventLoopGroup, hint: NioEventLoopGroup
         try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(group) // sets the EventLoopGroup that provides EventLoops for processing Channel events
-                    .channel(NioServerSocketChannel.class) // Channel implementation to be used
-                    .localAddress(socketAddress)
-                    // Sets a ChannelInboundHandler for I/O and data for the accepted channels
-                    .childHandler(new ChildChannelHandler());
-            ChannelFuture f = b.bind().sync();
-            f.channel().closeFuture().sync();
+            // create bootstrap to create and connect new client channel, hint: new ServerBootstrap()
+            // set EventLoopGroup that provides EventLoops for processing Channel events, hint: bootstrap.group()
+            // set channel implementation, hint: NioSocketChannel
+            // set local address, hint: localAddress
+            // set a ChannelInboundHandler for I/O and data for the accepted channels, hint: childHandler, ChildChannelHandler
+
+            // bind synchronously, hint: bootstrap.bind(), sync()
+            // wait synchronously for closing: hint: binding.channel(), closeFuture(), sync()
         } finally {
-            group.shutdownGracefully().sync();
+            // close the event group synchronously, hint: group.shutdownGracefully(), sync()
         }
     }
 
     private static class ChildChannelHandler extends ChannelInitializer<SocketChannel> {
         @Override
-        public void initChannel(SocketChannel ch) { // initialize each new Channel with an server.EchoServerHandler instance
-            ch.pipeline().addLast(new ServerMessageHandlerWorkshop());
+        public void initChannel(SocketChannel channel) {
+            // initialize each new Channel with an handler instance
+            // hint: channel.pipeline(), addLast, ServerMessageHandlerWorkshop
         }
     }
 }
