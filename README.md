@@ -1,8 +1,10 @@
-
+[![Build Status](https://travis-ci.com/mtumilowicz/java11-netty-non-blocking-server-workshops.svg?branch=master)](https://travis-ci.com/mtumilowicz/java11-netty-non-blocking-server-workshops)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-# java11-netty-non-blocking-server-basics
+
+# java11-netty-non-blocking-server-workshops
 
 * references
+    * https://www.manning.com/books/netty-in-action
     * https://stackoverflow.com/questions/22842153/netty-4-buffers-pooled-vs-unpooled/22907131
     * https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html
 
