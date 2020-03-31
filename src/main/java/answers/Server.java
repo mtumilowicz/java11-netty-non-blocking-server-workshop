@@ -19,25 +19,25 @@ class Server {
     }
 
     void start() throws Exception {
-        EventLoopGroup group = new NioEventLoopGroup();
+        EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
         try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(group) // sets the EventLoopGroup that provides EventLoops for processing Channel events
+            ServerBootstrap bootstrap = new ServerBootstrap();
+            bootstrap.group(eventLoopGroup) // sets the EventLoopGroup that provides EventLoops for processing Channel events
                     .channel(NioServerSocketChannel.class) // Channel implementation to be used
                     .localAddress(socketAddress)
                     // Sets a ChannelInboundHandler for I/O and data for the accepted channels
                     .childHandler(new ChildChannelHandler());
-            ChannelFuture f = b.bind().sync();
-            f.channel().closeFuture().sync();
+            ChannelFuture connection = bootstrap.bind().sync();
+            connection.channel().closeFuture().sync();
         } finally {
-            group.shutdownGracefully().sync();
+            eventLoopGroup.shutdownGracefully().sync();
         }
     }
 
     private static class ChildChannelHandler extends ChannelInitializer<SocketChannel> {
         @Override
-        public void initChannel(SocketChannel ch) { // initialize each new Channel with an server.EchoServerHandler instance
-            ch.pipeline().addLast(new ServerMessageHandler());
+        public void initChannel(SocketChannel channel) { // initialize each new Channel with an server.EchoServerHandler instance
+            channel.pipeline().addLast(new ServerMessageHandler());
         }
     }
 }
