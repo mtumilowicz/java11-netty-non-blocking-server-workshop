@@ -19,17 +19,17 @@ class Client {
     }
 
     void start() throws Exception {
-        EventLoopGroup group = new NioEventLoopGroup();
+        EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
         try {
-            Bootstrap b = new Bootstrap(); // Creates a Bootstrap to create and connect new client channels
-            b.group(group) // set EventLoopGroup that provides EventLoops for processing Channel events
-                    .channel(NioSocketChannel.class) // channel implementation
+            Bootstrap bootstrap = new Bootstrap();
+            bootstrap.group(eventLoopGroup)
+                    .channel(NioSocketChannel.class)
                     .remoteAddress(socketAddress)
                     .handler(new ChannelHandler());
-            ChannelFuture f = b.connect().sync();
-            f.channel().closeFuture().sync();
+            ChannelFuture connection = bootstrap.connect().sync();
+            connection.channel().closeFuture().sync();
         } finally {
-            group.shutdownGracefully().sync();
+            eventLoopGroup.shutdownGracefully().sync();
         }
     }
 
