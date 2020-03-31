@@ -9,6 +9,7 @@
     * introduction to non-blocking server implementation using Netty
     * understand internals of Netty: event loop, bootstrapping, callbacks
     * compare with: https://github.com/mtumilowicz/java12-nio-non-blocking-selector-server-workshop
+    * introduction to KiTTY
 * workshops with hints: `workshop` package, answers: `answers`
 
 ## introduction
