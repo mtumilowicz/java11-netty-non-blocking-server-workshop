@@ -1,9 +1,7 @@
 package answers;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -19,16 +17,17 @@ class Server {
     }
 
     void start() throws Exception {
-        EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
+        var eventLoopGroup = new NioEventLoopGroup();
         try {
-            ServerBootstrap bootstrap = new ServerBootstrap();
+            var bootstrap = new ServerBootstrap();
             bootstrap.group(eventLoopGroup) // sets the EventLoopGroup that provides EventLoops for processing Channel events
                     .channel(NioServerSocketChannel.class) // Channel implementation to be used
                     .localAddress(socketAddress)
                     // Sets a ChannelInboundHandler for I/O and data for the accepted channels
                     .childHandler(new ChildChannelHandler());
-            ChannelFuture connection = bootstrap.bind().sync();
-            connection.channel().closeFuture().sync();
+
+            var binding = bootstrap.bind().sync();
+            binding.channel().closeFuture().sync();
         } finally {
             eventLoopGroup.shutdownGracefully().sync();
         }
