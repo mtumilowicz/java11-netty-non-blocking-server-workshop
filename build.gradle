@@ -3,7 +3,7 @@ plugins {
     id 'groovy'
 }
 
-group 'java11-netty-non-blocking-server-basics'
+group 'java11-netty-non-blocking-server-workshops'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 11
