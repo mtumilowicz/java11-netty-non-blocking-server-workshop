@@ -1,6 +1,6 @@
+package answers;
+
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.CharsetUtil;
@@ -8,7 +8,7 @@ import io.netty.util.CharsetUtil;
 import static io.netty.channel.ChannelHandler.Sharable;
 
 @Sharable
-class EchoServerHandler extends ChannelInboundHandlerAdapter {
+class ServerMessageHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {

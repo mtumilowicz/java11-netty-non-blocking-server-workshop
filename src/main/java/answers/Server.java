@@ -1,3 +1,5 @@
+package answers;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -8,12 +10,12 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.net.InetSocketAddress;
 
-class EchoServer {
+class Server {
 
     private InetSocketAddress socketAddress = new InetSocketAddress(8080);
 
     public static void main(String[] args) throws Exception {
-        new EchoServer().start();
+        new Server().start();
     }
 
     void start() throws Exception {
@@ -34,8 +36,8 @@ class EchoServer {
 
     private static class ChildChannelHandler extends ChannelInitializer<SocketChannel> {
         @Override
-        public void initChannel(SocketChannel ch) { // initialize each new Channel with an EchoServerHandler instance
-            ch.pipeline().addLast(new EchoServerHandler());
+        public void initChannel(SocketChannel ch) { // initialize each new Channel with an server.EchoServerHandler instance
+            ch.pipeline().addLast(new ServerMessageHandler());
         }
     }
 }

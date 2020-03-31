@@ -1,6 +1,7 @@
+package answers;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.util.CharsetUtil;
@@ -8,7 +9,8 @@ import io.netty.util.CharsetUtil;
 import static io.netty.channel.ChannelHandler.Sharable;
 
 @Sharable
-class EchoClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
+class ClientMessageHandler extends SimpleChannelInboundHandler<ByteBuf> {
+
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         ctx.writeAndFlush(Unpooled.copiedBuffer("Hello Netty!", CharsetUtil.UTF_8));
