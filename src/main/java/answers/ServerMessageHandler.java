@@ -12,9 +12,9 @@ class ServerMessageHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ByteBuf in = (ByteBuf) msg;
-        System.out.println("Server received: " + in.toString(CharsetUtil.UTF_8));
-        ctx.writeAndFlush(in);
+        ByteBuf message = (ByteBuf) msg;
+        System.out.println("Server received: " + message.toString(CharsetUtil.UTF_8));
+        ctx.writeAndFlush(message);
     }
 
     @Override
